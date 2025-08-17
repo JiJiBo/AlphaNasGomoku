@@ -9,38 +9,46 @@ from torch import nn
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
-
+import multiprocessing as mp
 from board.GomokuBoard import GomokuBoard
 from board.GomukuPlayer import PLAYER_BLACK, PLAYER_WHITE
 from datasets.DataSets import Weighted_Dataset
 from mcts.MCTS_Agent import MCTS_Agent
 from net.GomokuNet import PolicyValueNet
-import multiprocessing
-from functools import partial
+mp.set_start_method('spawn', force=True)
 
 def generate_selfplay_data(strong_model, weak_model, num_games, board_size):
     # 使用多进程并行生成游戏
+    batch_size = 4096
+    device = torch.device('cpu')
+    strong_model_state_dict = strong_model.to(device).state_dict()
+    weak_model_state_dict = weak_model.to(device).state_dict()
 
-    strong_model_state_dict = strong_model.state_dict()
-    weak_model_state_dict = weak_model.state_dict()
-    with multiprocessing.get_context('spawn').Pool(
-            processes=22
-    ) as pool:
-        func = partial(
-            gen_a_episode_data,
-            strong_model_state_dict=strong_model_state_dict,
-            weak_model_state_dict=weak_model_state_dict,
-            board_size=board_size,
-        )
-        results = list(tqdm(
-            pool.imap(func, range(100)),
-            total=100,
-            desc="Generating games"
+    data_queue = mp.Queue(maxsize=batch_size)
+    stop_event = mp.Event()
+    workers = []
+    for i in range(22):
+        p = mp.Process(target=gen_a_episode_data, args=(
+            i, strong_model_state_dict,
+            weak_model_state_dict,
+            board_size, data_queue, stop_event,
         ))
-
+        p.start()
+        workers.append(p)
     # 整合结果
+    batch = []
+    while len(batch) < batch_size:
+        try:
+            batch.append(data_queue.get(timeout=5))
+            current_time = time.time()
+            if current_time - last_print_time >= 300:
+                print(f" 当前 batch 长度: {len(batch)}")
+                last_print_time = current_time
+        except Exception:
+            if stop_event.is_set():
+                break
     boards, policies, values, weights = [], [], [], []
-    for game_boards, game_policies, game_values, game_weights in results:
+    for game_boards, game_policies, game_values, game_weights in batch:
         boards.extend(game_boards)
         policies.extend(game_policies)
         values.extend(game_values)
@@ -50,27 +58,26 @@ def generate_selfplay_data(strong_model, weak_model, num_games, board_size):
     policies = torch.stack(policies)
     values = torch.FloatTensor(values)
     weights = torch.FloatTensor(weights)
-
     # 数据增强：旋转和翻转
     print("len_boards_raw = ", len(boards))
-    boards, policies, values, weights = augment_data(boards, policies, values, weights)
 
     return boards, policies, values, weights
 
 
-def gen_a_episode_data(_, strong_model_state_dict, weak_model_state_dict, board_size):
-    strong_model = PolicyValueNet(board_size=board_size)
+def gen_a_episode_data(_, strong_model_state_dict, weak_model_state_dict, board_size, data_queue, stop_event, ):
+    device = torch.device('cpu')
+    torch.set_num_threads(min(mp.cpu_count() // 4, 4))
+    strong_model = PolicyValueNet(board_size=board_size).to(device)
     strong_model.load_state_dict(strong_model_state_dict)
     strong_model.eval()  # 设置为评估模式
-    weak_model = PolicyValueNet(board_size=board_size)
+    weak_model = PolicyValueNet(board_size=board_size).to(device)
     weak_model.load_state_dict(weak_model_state_dict)
     weak_model.eval()  # 设置为评估模式
-    sum_boards, sum_policies, sum_values, sum_weights = [], [], [], []
     strong_agent = MCTS_Agent(strong_model)
     weak_agent = MCTS_Agent(weak_model)
     root_bord = GomokuBoard(board_size)
     player = PLAYER_BLACK
-    while not root_bord.is_terminal():
+    while not root_bord.is_terminal() and not stop_event.is_set():
         if player == PLAYER_BLACK:
             best_move, pi = strong_agent.run(root_bord, player, is_train=True)
         elif player == PLAYER_WHITE:
@@ -80,11 +87,13 @@ def gen_a_episode_data(_, strong_model_state_dict, weak_model_state_dict, board_
         root_bord.step(best_move)
         player = -player
     boards, policies, values, weights = strong_agent.get_train_data()
-    sum_boards.append(boards)
-    sum_policies.append(policies)
-    sum_values.append(values)
-    sum_weights.append(weights)
-    return sum_boards, sum_policies, sum_values, sum_weights
+    for b, p, v, w in zip(boards, policies, values, weights):
+        while not stop_event.is_set():
+            try:
+                data_queue.put((b, p.reshape(-1), v, w), timeout=1)
+                break
+            except mp.queues.Full:
+                continue
 
 
 def train_model(model, train_loader, val_loader, writter, scheduler, optimizer):
@@ -114,7 +123,7 @@ def train_model(model, train_loader, val_loader, writter, scheduler, optimizer):
 
             optimizer.zero_grad()
 
-            pred_values, pred_policies = model(batch_boards)
+            pred_policies, pred_values = model(batch_boards)
 
             # 计算损失
             value_loss = value_criterion(pred_values, batch_values).squeeze(1)
@@ -189,8 +198,8 @@ def trian():
     # if os.path.exists(resume_path):
     #     strong_model.load_state_dict(torch.load(resume_path, map_location=device))
     weak_model = PolicyValueNet(board_size=board_size).to(device)
-    optimizer = torch.optim.Adam(strong_model.parameters(), lr=0.2)
-    milestones = [30, 60, 90]
+    optimizer = torch.optim.Adam(strong_model.parameters(), lr=1e-3)
+    milestones = [30, 60 ]
     gamma = 0.1
     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=milestones, gamma=gamma)
     eps = tqdm(range(epochs))
