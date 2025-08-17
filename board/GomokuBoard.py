@@ -1,4 +1,6 @@
 # 棋盘
+import copy
+
 import numpy as np
 
 from board.GomokuAction import GomokuAction
@@ -111,3 +113,14 @@ class GomokuBoard:
         self.history.append(action)
         self.board[action.x, action.y] = action.flag
         return self.board, self.get_winner()
+
+    def copy(self):
+        """
+        拷贝棋盘
+        :return: 棋盘
+        """
+        new_board = GomokuBoard(self.size, self.count_win)
+        new_board.board = copy.deepcopy(self.board)
+        new_board.history = copy.deepcopy(self.history)
+        new_board.move_count = self.move_count
+        return new_board
