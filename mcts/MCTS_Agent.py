@@ -1,7 +1,13 @@
+import math
+import random
 from typing import List
 
+import numpy as np
+import torch
+
 from board import GomokuBoard
-from mcts.MCTS_Node import MCTS_Node
+from board.GomokuBoard import GomokuAction
+from mcts.MCTS_Node import MCTS_Node, Edge
 from net.GomokuNet import PolicyValueNet
 
 
@@ -15,5 +21,68 @@ class MCTSAgent:
         self.model.eval()
         self.visit_nodes: List['MCTS_Node'] = []
 
-    def run(self, root_board: GomokuBoard, player: int, number_samples=100, is_train=False):
+    def run(self, root_board: GomokuBoard, player: int, number_samples=800, is_train=False):
         root_node = MCTS_Node(root_board, player)
+        self.visit_nodes.append(root_node)
+        for _ in range(number_samples):
+            node = root_node
+            search_path = [node]
+            while node.children:
+                node = self.select_child(node)
+                search_path.append(node)
+            if node.board.is_terminal():
+                value = node.board.get_score()
+            else:
+                value = self.expand(node, - node.player)
+            for n in reversed(search_path):
+                n.update(value)
+                value = -value
+
+    def select_child(self, node: MCTS_Node):
+        total_visits = sum([(c.visits if c is not None else 0) for c, _ in node.children.values()])
+        explore_buff = math.pow(total_visits, 0.5)
+        best_move: [GomokuAction, None] = None
+        best_score = -float('inf')
+        best_child: [MCTS_Node, None] = None
+        best_edg = None
+        for action, edg in node.children.items():
+            child, prior = edg.child, edg.prior
+            vis_count = 0
+            Q = 0
+            if child is not None:
+                vis_count = child.visit_count
+                if vis_count != 0:
+                    Q = total_visits / vis_count
+            U = self.c_puct * prior * explore_buff / (vis_count + 1)
+            score = Q + U
+            if score > best_score:
+                best_score = score
+                best_child = child
+                best_move = action
+                best_edg = edg
+        if best_child is None and best_move is not None:
+            # 使用深拷贝，保证每个节点棋盘独立
+            new_board = node.board.copy()
+            new_board.step(best_move)
+            best_child = MCTS_Node(new_board, best_move.flag, parent=node, prior_p=best_edg.prior)
+            node.children[best_move] = Edge(best_child, best_edg.prior)
+        return best_child
+
+    def expand(self, node: MCTS_Node, player: int) -> float:
+        policy_logits, value = self.model.calc_one_board(
+            torch.from_numpy(node.board.board.get_planes_9ch(node.player))
+        )
+        moves = node.board.available()
+        priors = np.array([policy_logits[x, y] for x, y in moves], dtype=np.float32)
+        s = float(priors.sum())
+        if s > 0:
+            priors /= s
+        else:
+            priors = np.ones(len(moves), dtype=np.float32) / max(1, len(moves))
+        priors = [max(0.0, p + random.normalvariate(0, self.use_rand)) for p in priors]
+        ps = float(sum(priors))
+        priors = [p / ps if ps > 0 else 1.0 / len(priors) for p in priors]
+        for (y, x), p in zip(moves, priors):
+            node.children[GomokuAction(x, y, player)] = Edge(None, float(p))
+
+        return float(value)
