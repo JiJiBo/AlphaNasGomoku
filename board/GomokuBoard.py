@@ -41,6 +41,7 @@ class GomokuBoard:
         self.move_count = 0
         # 走的历史
         self.history = []  # [(x,y,player_flag)]
+        self.win_path = None
 
     def last_move(self) -> GomokuAction:
         if len(self.history) == 0:
@@ -82,23 +83,26 @@ class GomokuBoard:
         for x in range(self.size):
             for y in range(self.size):
                 flag = self.board[x][y]
-                if flag != PLAYER_EMPTY:
-                    count = 1
-                    for dir_x, dir_y in directions:
-                        nx = x + dir_x
-                        ny = y + dir_y
-                        if nx >= 0 and nx < self.size and ny >= 0 and ny < self.size:
+                if flag == PLAYER_EMPTY:
+                    continue
+
+                for dir_x, dir_y in directions:
+                    count = 0
+                    seq = []
+                    for i in range(self.count_win):
+                        nx = x + dir_x * i
+                        ny = y + dir_y * i
+                        seq.append([nx, ny])
+
+                        if 0 <= nx < self.size and 0 <= ny < self.size:
                             if self.board[nx][ny] == flag:
                                 count += 1
-                            else:
-                                break
-                        else:
-                            break
-                        if count >= self.count_win:
-                            if flag == PLAYER_WHITE:
-                                return Winner.WHITE
-                            elif flag == PLAYER_BLACK:
-                                return Winner.BLACK
+                                if count >= self.count_win:
+                                    self.win_path = seq[:self.count_win]
+                                    if flag == PLAYER_WHITE:
+                                        return Winner.WHITE
+                                    elif flag == PLAYER_BLACK:
+                                        return Winner.BLACK
 
         return Winner.EMPTY
 

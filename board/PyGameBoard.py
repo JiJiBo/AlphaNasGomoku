@@ -6,7 +6,7 @@ import pygame
 import torch
 from typing import Optional
 
-from board.GomokuBoard import GomokuBoard
+from board.GomokuBoard import GomokuBoard, GomokuAction
 
 
 class Agent:
@@ -28,7 +28,7 @@ class PygameMatch:
     """Display a real-time match between two agents or a human using pygame."""
 
     def __init__(self, agent_black: Optional[Agent], agent_white: Optional[Agent],
-                 board_size: int = 15, cell_size: int = 40, margin: int = 20,
+                 board_size: int = 19, cell_size: int = 40, margin: int = 20,
                  delay: int = 500):
         self.board = GomokuBoard(board_size)
         self.agent_black = agent_black
@@ -49,13 +49,6 @@ class PygameMatch:
                 player == -1 and self.agent_white is None
         )
 
-    def apply_undo(self) -> int:
-        steps = 2 if ((self.agent_black is None) ^ (self.agent_white is None)) else 1
-        for _ in range(min(steps, len(self.board.history))):
-            self.board.undo()
-        # 更新赢家轨迹
-        self.board.winner_from_last()
-        return 1 if self.board.move_count % 2 == 0 else -1
 
     def get_human_move(self):
         while True:
@@ -115,15 +108,12 @@ class PygameMatch:
         while True:
             self.draw_board()
             if self.board.is_terminal():
-                self.show_winner(self.board.winner())
+                self.show_winner(self.board.get_winner().value.real)
                 pygame.time.wait(2000)
                 break
 
             if self.is_human_turn(current_player):
                 res = self.get_human_move()
-                if res == 'undo':
-                    current_player = self.apply_undo()
-                    continue
                 move = res
             else:
                 undone = False
@@ -131,17 +121,13 @@ class PygameMatch:
                     if event.type == pygame.QUIT:
                         pygame.quit()
                         sys.exit()
-                    if event.type == pygame.KEYDOWN and event.key == pygame.K_u:
-                        current_player = self.apply_undo()
-                        undone = True
-                        break
                 if undone:
                     continue
                 agent = self.agent_black if current_player == 1 else self.agent_white
                 move = agent.select_move(self.board.copy(), current_player)
                 pygame.time.wait(self.delay)
 
-            self.board.step(move, current_player)
+            self.board.step(GomokuAction(move[0],move[1],current_player))
             current_player = -current_player
 
 
