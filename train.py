@@ -21,12 +21,12 @@ mp.set_start_method('spawn', force=True)
 
 def generate_selfplay_data(strong_model, weak_model, num_games, board_size):
     # 使用多进程并行生成游戏
-    batch_size = 4096
+    max_queue_size = 4096
     device = torch.device('cpu')
     strong_model_state_dict = strong_model.to(device).state_dict()
     weak_model_state_dict = weak_model.to(device).state_dict()
 
-    data_queue = mp.Queue(maxsize=batch_size)
+    data_queue = mp.Queue(maxsize=max_queue_size)
     stop_event = mp.Event()
     workers = []
     for i in range(num_games):
@@ -40,7 +40,7 @@ def generate_selfplay_data(strong_model, weak_model, num_games, board_size):
     # 整合结果
     batch = []
     last_print_time = time.time()
-    while len(batch) < batch_size:
+    while len(batch) < max_queue_size:
         try:
             batch.append(data_queue.get(timeout=5))
             current_time = time.time()
@@ -51,11 +51,11 @@ def generate_selfplay_data(strong_model, weak_model, num_games, board_size):
             if stop_event.is_set():
                 break
     boards, policies, values, weights = [], [], [], []
-    for game_boards, game_policies, game_values, game_weights in batch:
-        boards.extend(game_boards)
-        policies.extend(game_policies)
-        values.extend(game_values)
-        weights.extend(game_weights)
+    for b, p, v, w in batch:
+        boards.append(b)
+        policies.append(p)
+        values.append(v)
+        weights.append(w)
 
     boards = torch.stack(boards)
     policies = torch.stack(policies)
@@ -63,7 +63,7 @@ def generate_selfplay_data(strong_model, weak_model, num_games, board_size):
     weights = torch.FloatTensor(weights)
     # 数据增强：旋转和翻转
     print("len_boards_raw = ", len(boards))
-
+    stop_event.set()
     return boards, policies, values, weights
 
 
@@ -78,19 +78,26 @@ def gen_a_episode_data(_, strong_model_state_dict, weak_model_state_dict, board_
     weak_model.eval()  # 设置为评估模式
     strong_agent = MCTS_Agent(strong_model)
     weak_agent = MCTS_Agent(weak_model)
-    root_bord = GomokuBoard(board_size)
-    player = PLAYER_BLACK
-    while not root_bord.is_terminal() and not stop_event.is_set():
-        if player == PLAYER_BLACK:
-            best_move, pi = strong_agent.run(root_bord, player, is_train=True)
-        elif player == PLAYER_WHITE:
-            best_move, pi = weak_agent.run(root_bord, player, is_train=True)
-        else:
-            raise RuntimeError("错误的执棋者")
-        root_bord.step(best_move)
-        player = -player
-    boards, policies, values, weights = strong_agent.get_train_data()
-    for b, p, v, w in zip(boards, policies, values, weights):
+    s_boards, s_policies, s_values, s_weights = [], [], [], []
+    while not stop_event.is_set():
+        root_bord = GomokuBoard(board_size)
+        player = PLAYER_BLACK
+        while not root_bord.is_terminal() and not stop_event.is_set():
+            if player == PLAYER_BLACK:
+                best_move, pi = strong_agent.run(root_bord, player, is_train=True)
+            elif player == PLAYER_WHITE:
+                best_move, pi = weak_agent.run(root_bord, player, is_train=True)
+            else:
+                raise RuntimeError("错误的执棋者")
+            root_bord.step(best_move)
+            player = -player
+        boards, policies, values, weights = strong_agent.get_train_data()
+        s_boards.extend(boards)
+        s_policies.extend(policies)
+        s_values.extend(values)
+        s_weights.extend(weights)
+
+    for b, p, v, w in zip(s_boards, s_policies, s_values, s_weights):
         while not stop_event.is_set():
             try:
                 data_queue.put((b, p.reshape(-1), v, w), timeout=1)
@@ -156,7 +163,7 @@ def train_model(model, train_loader, val_loader, writter, scheduler, optimizer):
                 policies = policies.to(device).view(policies.size(0), -1)
                 values = values.to(device).unsqueeze(1)
 
-                pred_values, pred_policies = model(boards)
+                pred_policies, pred_values = model(boards)
                 val_value_loss += val_value_criterion(pred_values, values).item()
                 val_policy_loss += val_policy_criterion(
                     F.log_softmax(pred_policies, dim=1),
