@@ -1,3 +1,4 @@
+import copy
 import math
 import random
 from typing import List
@@ -96,3 +97,16 @@ class MCTS_Agent:
 
     def get_result_action(self, node: MCTS_Node, is_train=False) -> tuple[GomokuAction, ndarray]:
         return node.best_action(1.2 if is_train else 0, node.board.available())
+
+    def get_train_data(self):
+        boards, policies, values, weights = [], [], [], []
+        train_buff = 0.8
+        train_simulation = 30
+        for node in self.visit_nodes:
+            total_visits = sum([(edg.child.visits if edg.child is not None else 0) for edg in node.children.values()])
+            best_move, pi = node.best_action(1.2, node.board.available())
+            boards.append(node.board.copy().get_planes_3ch())
+            policies.append(pi)
+            values.append(node.board.get_score())
+            weights.append(math.sqrt(total_visits / train_simulation) * train_buff)
+        return boards, policies, values, weights
