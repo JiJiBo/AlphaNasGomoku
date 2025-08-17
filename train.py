@@ -134,7 +134,7 @@ def trian():
     run_id = len(os.listdir('./check_dir'))
     checkpoints_path = f"./check_dir/run{run_id}"
     os.makedirs(checkpoints_path, exist_ok=True)
-    log_dir = os.path.join(checkpoints_path, "log")
+    log_dir = os.path.join("/root/tf-logs/", "log")
     writer = SummaryWriter(os.path.join(log_dir, time.strftime("%Y%m%d-%H%M%S")))
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     strong_model = PolicyValueNet(board_size=board_size).to(device)
