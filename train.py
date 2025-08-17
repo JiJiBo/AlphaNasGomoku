@@ -37,6 +37,7 @@ def generate_selfplay_data(strong_model, weak_model, num_games, board_size):
         workers.append(p)
     # 整合结果
     batch = []
+    last_print_time = time.time()
     while len(batch) < batch_size:
         try:
             batch.append(data_queue.get(timeout=5))

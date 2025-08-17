@@ -29,8 +29,8 @@ class MCTS_Agent:
     def run(self, root_board: GomokuBoard, player: int, number_samples=100, is_train=False):
         root_node = MCTS_Node(root_board, player)
         self.visit_nodes.append(root_node)
-        # for _ in range(number_samples):
-        for _ in tqdm.trange(number_samples):
+        for _ in range(number_samples):
+        # for _ in tqdm.trange(number_samples):
             node = root_node
             search_path = [node]
             while node.children:
