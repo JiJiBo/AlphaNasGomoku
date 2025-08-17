@@ -32,3 +32,12 @@ class MCTS_Node:
         if self.parent is None:
             return 0.0
         return c_puct * self.prior_p * ((self.parent.visits ** 0.5) / (1 + self.visits))
+
+    def get_value(self, c_puct: float) -> float:
+        """PUCT 选择公式 = Q + U"""
+        return self.Q + self.U(c_puct)
+
+    def update(self, value: float):
+        """回溯时更新本节点的价值统计"""
+        self.visits += 1
+        self.wins_value += value
