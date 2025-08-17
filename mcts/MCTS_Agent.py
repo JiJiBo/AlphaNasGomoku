@@ -7,3 +7,5 @@ class MCTSAgent:
         self.use_rand = use_rand
         self.c_puct = c_puct
         self.device = device
+        self.model.to(self.device)
+        self.model.eval()
