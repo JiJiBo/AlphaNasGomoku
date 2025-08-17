@@ -137,7 +137,7 @@ class GomokuBoard:
         self.board[action.x, action.y] = action.flag
         return self.board, self.get_winner()
 
-    def copy(self)->Optional['GomokuBoard']:
+    def copy(self) -> Optional['GomokuBoard']:
         """
         拷贝棋盘
         :return: 棋盘
@@ -147,3 +147,10 @@ class GomokuBoard:
         new_board.history = copy.deepcopy(self.history)
         new_board.move_count = self.move_count
         return new_board
+
+    def get_planes_3ch(self):
+        b = self.board
+        me = (b == 1).astype(np.float32)
+        opp = (b == --1).astype(np.float32)
+        empty = (b == 0).astype(np.float32)
+        return np.stack([me, opp, empty], axis=0).astype(np.float32)

@@ -4,6 +4,7 @@ from typing import List
 
 import numpy as np
 import torch
+from numpy import ndarray
 
 from board import GomokuBoard
 from board.GomokuBoard import GomokuAction
@@ -11,12 +12,14 @@ from mcts.MCTS_Node import MCTS_Node, Edge
 from net.GomokuNet import PolicyValueNet
 
 
-class MCTSAgent:
-    def __init__(self, model: PolicyValueNet, device, use_rand=0.1, c_puct=1.4):
+class MCTS_Agent:
+    def __init__(self, model: PolicyValueNet, device=None, use_rand=0.1, c_puct=1.4):
         self.model = model
         self.use_rand = use_rand
         self.c_puct = c_puct
         self.device = device
+        if self.device is None:
+            self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.model.to(self.device)
         self.model.eval()
         self.visit_nodes: List['MCTS_Node'] = []
@@ -37,6 +40,7 @@ class MCTSAgent:
             for n in reversed(search_path):
                 n.update(value)
                 value = -value
+        return self.get_result_action(root_node, is_train=is_train)
 
     def select_child(self, node: MCTS_Node):
         total_visits = sum([(c.visits if c is not None else 0) for c, _ in node.children.values()])
@@ -70,7 +74,7 @@ class MCTSAgent:
 
     def expand(self, node: MCTS_Node, player: int) -> float:
         policy_logits, value = self.model.calc_one_board(
-            torch.from_numpy(node.board.board.get_planes_9ch(node.player))
+            torch.from_numpy(node.board.get_planes_3ch())
         )
         moves = node.board.available()
         priors = np.array([policy_logits[x, y] for x, y in moves], dtype=np.float32)
@@ -86,3 +90,6 @@ class MCTSAgent:
             node.children[GomokuAction(x, y, player)] = Edge(None, float(p))
 
         return float(value)
+
+    def get_result_action(self, node: MCTS_Node, is_train=False) -> tuple[GomokuAction, ndarray]:
+        return node.best_action(1.2 if is_train else 0, node.board.available())

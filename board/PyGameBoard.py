@@ -7,6 +7,8 @@ import torch
 from typing import Optional
 
 from board.GomokuBoard import GomokuBoard, GomokuAction
+from mcts.MCTS_Agent import MCTS_Agent
+from net.GomokuNet import PolicyValueNet
 
 
 class Agent:
@@ -22,6 +24,37 @@ class RandomAgent(Agent):
     def select_move(self, board: GomokuBoard, player: int):
         moves = board.available()
         return random.choice(moves)
+
+
+class MCTSAgent(Agent):
+    """Agent that uses MCTS with a neural network model."""
+
+    def __init__(self, model: PolicyValueNet, simulations: int = 100):
+        self.mcts = MCTS_Agent(model)
+        self.simulations = simulations
+
+    def select_move(self, board: GomokuBoard, player: int):
+        action, probs = self.mcts.run(board, player, self.simulations)
+        return (action.y, action.x)
+
+
+class ModelAgent(MCTSAgent):
+    """Agent that loads a PolicyValueNet model from a checkpoint."""
+
+    def __init__(
+            self,
+            board_size: int = 19,
+            device: Optional[str] = None,
+            simulations: int = 100,
+    ):
+        if device is None:
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+        model = PolicyValueNet(board_size=board_size)
+        # state = torch.load(model_path, map_location=device)
+        # model.load_state_dict(state)
+        model.to(device)
+        model.eval()
+        super().__init__(model, simulations)
 
 
 class PygameMatch:
@@ -48,7 +81,6 @@ class PygameMatch:
         return (player == 1 and self.agent_black is None) or (
                 player == -1 and self.agent_white is None
         )
-
 
     def get_human_move(self):
         while True:
@@ -127,13 +159,15 @@ class PygameMatch:
                 move = agent.select_move(self.board.copy(), current_player)
                 pygame.time.wait(self.delay)
 
-            self.board.step(GomokuAction(move[0],move[1],current_player))
+            self.board.step(GomokuAction(move[0], move[1], current_player))
             current_player = -current_player
+
 
 
 if __name__ == "__main__":
     # Example usage: human vs random agent
-    model = RandomAgent()
+    model = PolicyValueNet()
+    modelAgent = MCTSAgent(model)
     # game = PygameMatch(modelAgent, modelAgent)
-    game = PygameMatch(None, model)
+    game = PygameMatch(None, modelAgent)
     game.play()
