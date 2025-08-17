@@ -84,16 +84,17 @@ class MCTS_Node:
         best_move = rng.choice(actions, p=pi)
         return best_move, pi
 
-    def get_train(self, ) -> Tuple[GomokuAction, np.ndarray]:
+    def get_train(self) -> np.ndarray:
         """
-        获取当前节点的最佳动作。
-        参数:
-            tau: 温度, 训练期 >0, 实战期 0
-            legal_actions: 可选，只考虑合法动作
+        获取训练用的策略分布 π(s)，基于访问次数 N(s,a) 归一化。
         返回:
-            pi:
+            policy: [board_size, board_size] 的策略分布矩阵
         """
         policy = np.zeros((self.board.size, self.board.size), dtype=np.float64)
-        for move, edge in self.children.items():
-            policy[move.x, move.y] = edge.prior
+        total_visits = sum(edge.child.visits if edge.child else 0 for edge in self.children.values())
+        if total_visits > 0:
+            for move, edge in self.children.items():
+                visits = edge.child.visits if edge.child else 0
+                policy[move.x, move.y] = visits / total_visits
         return policy
+
