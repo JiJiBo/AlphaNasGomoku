@@ -45,14 +45,17 @@ class MCTS_Agent:
         return self.get_result_action(root_node, is_train=is_train)
 
     def select_child(self, node: MCTS_Node):
+        # print("=="*100)
         total_visits = sum([(edg.child.visits if edg.child is not None else 0) for edg in node.children.values()])
         explore_buff = math.pow(total_visits, 0.5)
         best_move: [GomokuAction, None] = None
         best_score = -float('inf')
         best_child: [MCTS_Node, None] = None
         best_edg = None
+        count = 0
         for action, edg in node.children.items():
             if not action.is_available(node.board):
+                count+=1
                 continue
             child, prior = edg.child, edg.prior
             vis_count = 0
@@ -63,17 +66,22 @@ class MCTS_Agent:
                     Q = total_visits / vis_count
             U = self.c_puct * prior * explore_buff / (vis_count + 1)
             score = Q + U
+            # print(score)
             if score > best_score:
                 best_score = score
                 best_child = child
                 best_move = action
                 best_edg = edg
+                # print(action)
         if best_child is None and best_move is not None:
             # 使用深拷贝，保证每个节点棋盘独立
             new_board = node.board.copy()
             new_board.step(best_move)
             best_child = MCTS_Node(new_board, -best_move.flag, parent=node, prior_p=best_edg.prior)
             node.children[best_move] = Edge(best_child, best_edg.prior)
+        elif best_move is None:
+            print(count)
+            print(len(node.children))
         return best_child
 
     def expand(self, node: MCTS_Node) -> float:
@@ -90,7 +98,7 @@ class MCTS_Agent:
         priors = [max(0.0, p + random.normalvariate(0, self.use_rand)) for p in priors]
         ps = float(sum(priors))
         priors = [p / ps if ps > 0 else 1.0 / len(priors) for p in priors]
-        for (y, x), p in zip(moves, priors):
+        for (x, y), p in zip(moves, priors):
             node.children[GomokuAction(x, y, node.player)] = Edge(None, float(p))
 
         return float(value)

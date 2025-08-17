@@ -59,7 +59,7 @@ def train_model(model, train_loader, val_loader, writter, scheduler, optimizer):
         train_value_loss, train_policy_loss = 0, 0
 
         for batch_boards, batch_policies, batch_values, batch_weights in tqdm(train_loader,
-                                                                              desc=f'Epoch {epoch + 1}/{config.num_epochs}'):
+                                                                              desc=f'Epoch {epoch + 1} '):
             batch_boards = batch_boards.to(device)
             batch_policies = batch_policies.to(device).view(batch_policies.size(0), -1)
             batch_values = batch_values.to(device).unsqueeze(1)  # 添加维度匹配
