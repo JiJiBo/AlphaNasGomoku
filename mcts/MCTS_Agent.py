@@ -26,7 +26,6 @@ class MCTS_Agent:
         self.visit_nodes: List['MCTS_Node'] = []
 
     def run(self, root_board: GomokuBoard, player: int, number_samples=800, is_train=False):
-        print("current player ", player)
         root_node = MCTS_Node(root_board, player)
         self.visit_nodes.append(root_node)
         for _ in tqdm.trange(number_samples):
