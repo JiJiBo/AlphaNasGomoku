@@ -37,7 +37,6 @@ class MCTS_Agent:
                 node = self.select_child(node)
                 search_path.append(node)
             if node.board.is_terminal():
-                print("结束了一把")
                 value = node.board.get_score()
             else:
                 value = self.expand(node)
@@ -133,7 +132,7 @@ class MCTS_Agent:
 
         for board, policy, value, weight in zip(boards, policies, values, weights):
             value = value.detach().clone().float()
-            weight =weight.detach().clone().detach().float()
+            weight = weight.detach().clone().detach().float()
 
             # D4 对称变换
             for k in range(4):
