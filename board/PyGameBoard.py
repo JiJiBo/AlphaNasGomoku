@@ -64,7 +64,7 @@ class PygameMatch:
 
     def __init__(self, agent_black: Optional[Agent], agent_white: Optional[Agent],
                  board_size: int = 19, cell_size: int = 40, margin: int = 20,
-                 delay: int = 500):
+                 delay: int = 100):
         self.board = GomokuBoard(board_size)
         self.agent_black = agent_black
         self.agent_white = agent_white
@@ -143,7 +143,7 @@ class PygameMatch:
             self.draw_board()
             if self.board.is_terminal():
                 self.show_winner(self.board.get_winner().value.real)
-                pygame.time.wait(2000)
+                pygame.time.wait(1000)
                 break
 
             if self.is_human_turn(current_player):
@@ -168,10 +168,10 @@ class PygameMatch:
 if __name__ == "__main__":
     # Example usage: human vs random agent
     model = PolicyValueNet()
-    path = "E:\PyPro\AlphaNasGomoku\check_dir\run5\model\strong_model_20.pth"
+    path = r"C:\Users\12700\Downloads\strong_model_30.pth"
     if os.path.exists(path):
         model.load_state_dict(torch.load(path))
     modelAgent = MCTSAgent(model)
     # game = PygameMatch(modelAgent, modelAgent)
-    game = PygameMatch(None, modelAgent)
+    game = PygameMatch(modelAgent, modelAgent)
     game.play()

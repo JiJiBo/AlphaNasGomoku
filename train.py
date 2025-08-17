@@ -167,8 +167,8 @@ def train_model(model, train_loader, val_loader, writter, scheduler, optimizer):
 
             # 计算损失
             value_loss = value_criterion(pred_values, batch_values).squeeze(1)
-            policy_loss = policy_criterion(F.log_softmax(pred_policies, dim=1),
-                                           batch_policies.view(-1, batch_policies.size(-1))).sum(dim=1, keepdim=True)
+            policy_loss = -(batch_policies * F.log_softmax(pred_policies, dim=1)).sum(dim=1)
+
             # print(value_loss.shape)
             # print(policy_loss.shape)
             # print(pred_values.shape)
@@ -181,10 +181,10 @@ def train_model(model, train_loader, val_loader, writter, scheduler, optimizer):
 
             loss.backward()
             optimizer.step()
-            scheduler.step()
+
             train_value_loss += weighted_value_loss.item()
             train_policy_loss += weighted_policy_loss.item()
-
+        scheduler.step()
         model.eval()
         val_value_loss, val_policy_loss = 0, 0
         with torch.no_grad():
@@ -278,23 +278,32 @@ def train():
             recent_win_rate = recent_strong_wins / window_size
 
             # 如果胜率达到阈值，更新弱模型
-            if recent_win_rate >= win_rate_threshold and epoch - last_sync_epoch >= 5:
+            if recent_win_rate >= win_rate_threshold and epoch - last_sync_epoch >= 30:
                 last_sync_epoch = epoch
                 print(f"强模型最近{window_size}局胜率{recent_win_rate:.2%}达到阈值{win_rate_threshold:.0%}，更新弱模型")
                 weak_model.load_state_dict(strong_model.state_dict())
                 recent_results = []  # 重置胜率统计
 
         # 划分训练集和验证集
-        num_train = int(len(sum_boards) * train_ratio)
-        train_boards = sum_boards[:num_train]
-        train_policies = sum_policies[:num_train]
-        train_values = sum_values[:num_train]
-        train_weights = sum_weights[:num_train]
+        # 打乱数据
+        num_samples = len(sum_boards)
+        indices = torch.randperm(num_samples)
 
-        val_boards = sum_boards[num_train:]
-        val_policies = sum_policies[num_train:]
-        val_values = sum_values[num_train:]
-        val_weights = sum_weights[num_train:]
+        num_train = int(num_samples * train_ratio)
+        train_idx = indices[:num_train]
+        val_idx = indices[num_train:]
+
+        # 训练集
+        train_boards = sum_boards[train_idx]
+        train_policies = sum_policies[train_idx]
+        train_values = sum_values[train_idx]
+        train_weights = sum_weights[train_idx]
+
+        # 验证集
+        val_boards = sum_boards[val_idx]
+        val_policies = sum_policies[val_idx]
+        val_values = sum_values[val_idx]
+        val_weights = sum_weights[val_idx]
 
         # 创建数据集和数据加载器
         train_dataset = Weighted_Dataset(train_boards, train_policies, train_values, train_weights)
