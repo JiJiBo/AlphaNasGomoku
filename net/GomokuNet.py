@@ -69,12 +69,13 @@ class PolicyValueNet(nn.Module):
         v = v.view(v.size(0), -1)  # [B, H*W]
         v = F.relu(self.value_fc1(v))  # [B,256]
         value = torch.tanh(self.value_fc2(v))  # [B,1]
-        policy_logits = F.softmax(policy_logits, dim=1)
+        # policy_logits = F.softmax(policy_logits, dim=1)
         return policy_logits, value
 
     def calc_board(self, board_4ch):
         with torch.no_grad():
             policy_logits, value = self.forward(board_4ch)
+            policy_logits = F.log_softmax(policy_logits, dim=1)
             policy_logits = policy_logits.view(policy_logits.size(0), self.H, self.W)
             value = value.view(value.size(0), 1)
             policy = policy_logits.cpu().detach().numpy().tolist()
@@ -88,6 +89,7 @@ class PolicyValueNet(nn.Module):
         board_4ch = board_4ch.unsqueeze(0).to(device, dtype=torch.float32)
         with torch.no_grad():
             policy_logits, value = self.forward(board_4ch)
+            policy_logits = F.log_softmax(policy_logits, dim=1)
         policy_logits = (
             policy_logits.squeeze(0).view(self.H, self.W).detach().cpu().numpy()
         )

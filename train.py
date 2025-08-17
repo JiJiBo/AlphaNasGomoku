@@ -167,7 +167,7 @@ def train_model(model, train_loader, val_loader, writter, scheduler, optimizer):
 
             # 计算损失
             value_loss = value_criterion(pred_values, batch_values).squeeze(1)
-            policy_loss = policy_criterion(pred_policies,
+            policy_loss = policy_criterion(F.log_softmax(pred_policies, dim=1),
                                            batch_policies.view(-1, batch_policies.size(-1))).sum(dim=1, keepdim=True)
             # print(value_loss.shape)
             # print(policy_loss.shape)
@@ -196,7 +196,7 @@ def train_model(model, train_loader, val_loader, writter, scheduler, optimizer):
                 pred_policies, pred_values = model(boards)
                 val_value_loss += val_value_criterion(pred_values, values).item()
                 val_policy_loss += val_policy_criterion(
-                    pred_policies,
+                    F.log_softmax(pred_policies, dim=1),
                     policies.view(-1, policies.size(-1))
                 ).item()
 
