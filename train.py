@@ -313,7 +313,7 @@ def train():
             current_win_rate = sum(1 for r in recent_results if r == 1) / len(recent_results)
             writer.add_scalar('win_rate/recent', current_win_rate, epoch)
 
-        if epoch % 5 == 0:
+        if epoch % 30 == 0:
             model_dir = os.path.join(checkpoints_path, "model")
             os.makedirs(model_dir, exist_ok=True)
             torch.save(strong_model.state_dict(), os.path.join(model_dir, f"strong_model_{epoch}.pth"))
