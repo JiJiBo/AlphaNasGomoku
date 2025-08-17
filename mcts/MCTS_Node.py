@@ -52,7 +52,7 @@ class MCTS_Node:
         # 筛选合法动作
         actions = list(self.children.keys())
         if legal_actions is not None:
-            actions = [a for a in actions if [a.x, a.y] in legal_actions]
+            actions = [a for a in actions if (a.x, a.y) in legal_actions]
 
         if not actions:
             raise ValueError("没有合法动作可选择")

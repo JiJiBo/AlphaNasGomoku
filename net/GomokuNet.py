@@ -26,7 +26,7 @@ class PolicyValueNet(nn.Module):
     输出: policy_logits[B, H*W], value[B, 1]
     """
 
-    def __init__(self, in_channels=9, channels=128, num_blocks=8, board_size=15):
+    def __init__(self, in_channels=3, channels=128, num_blocks=8, board_size=19):
         super().__init__()
         self.H = self.W = board_size
         # Stem
