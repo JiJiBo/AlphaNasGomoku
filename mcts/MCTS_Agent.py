@@ -1,3 +1,6 @@
+from typing import List
+
+from mcts.MCTS_Node import MCTS_Node
 from net.GomokuNet import PolicyValueNet
 
 
@@ -9,3 +12,4 @@ class MCTSAgent:
         self.device = device
         self.model.to(self.device)
         self.model.eval()
+        self.visit_nodes:List['MCTS_Node'] = []
