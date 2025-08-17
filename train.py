@@ -218,7 +218,7 @@ def train_model(model, train_loader, val_loader, writter, scheduler, optimizer):
 def train():
     board_size = 19
     batch_size = 256
-    epochs = 120
+    epochs = 12000
     train_ratio = 0.9
     seed = 42
     win_rate_threshold = 0.55  # 胜率阈值
