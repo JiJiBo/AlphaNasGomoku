@@ -6,50 +6,45 @@ import numpy as np
 import torch
 from numpy import mean
 from torch import nn
-from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 import multiprocessing as mp
+
 from board.GomokuBoard import GomokuBoard
 from board.GomukuPlayer import PLAYER_BLACK, PLAYER_WHITE
-from datasets.DataSets import Weighted_Dataset
 from mcts.MCTS_Agent import MCTS_Agent
 from net.GomokuNet import PolicyValueNet
 
 mp.set_start_method('spawn', force=True)
 
 
-def generate_selfplay_data(strong_model, weak_model, num_games, board_size):
-    # 使用多进程并行生成游戏
-    max_queue_size = 4096
+def generate_selfplay_data(strong_model, weak_model, num_games, board_size, max_games_per_worker=5):
     device = torch.device('cpu')
     strong_model_state_dict = strong_model.to(device).state_dict()
     weak_model_state_dict = weak_model.to(device).state_dict()
 
-    data_queue = mp.Queue(maxsize=max_queue_size)
+    data_queue = mp.Queue(maxsize=4096)
     stop_event = mp.Event()
+
     workers = []
     for i in range(num_games):
-        p = mp.Process(target=gen_a_episode_data, args=(
-            i, strong_model_state_dict,
-            weak_model_state_dict,
-            board_size, data_queue, stop_event,
-        ))
+        p = mp.Process(target=gen_a_episode_data,
+                       args=(strong_model_state_dict, weak_model_state_dict, board_size, data_queue, stop_event,
+                             max_games_per_worker))
         p.start()
         workers.append(p)
-    # 整合结果
+
     batch = []
-    last_print_time = time.time()
-    while len(batch) < max_queue_size:
+    while any(p.is_alive() for p in workers) or not data_queue.empty():
         try:
             batch.append(data_queue.get(timeout=5))
-            current_time = time.time()
-            if current_time - last_print_time >= 300:
-                print(f" 当前 batch 长度: {len(batch)}")
-                last_print_time = current_time
         except Exception:
-            if stop_event.is_set():
-                break
+            continue
+
+    stop_event.set()
+    for p in workers:
+        p.join()
+
     boards, policies, values, weights = [], [], [], []
     for b, p, v, w in batch:
         boards.append(b)
@@ -61,47 +56,44 @@ def generate_selfplay_data(strong_model, weak_model, num_games, board_size):
     policies = torch.stack(policies)
     values = torch.FloatTensor(values)
     weights = torch.FloatTensor(weights)
-    # 数据增强：旋转和翻转
-    print("len_boards_raw = ", len(boards))
-    stop_event.set()
+
+    print(f"生成完毕，样本总数: {len(boards)}")
     return boards, policies, values, weights
 
 
-def gen_a_episode_data(_, strong_model_state_dict, weak_model_state_dict, board_size, data_queue, stop_event, ):
+def gen_a_episode_data(strong_model_state_dict, weak_model_state_dict, board_size, data_queue, stop_event, max_games):
     device = torch.device('cpu')
     torch.set_num_threads(min(mp.cpu_count() // 4, 4))
+
     strong_model = PolicyValueNet(board_size=board_size).to(device)
     strong_model.load_state_dict(strong_model_state_dict)
-    strong_model.eval()  # 设置为评估模式
+    strong_model.eval()
+
     weak_model = PolicyValueNet(board_size=board_size).to(device)
     weak_model.load_state_dict(weak_model_state_dict)
-    weak_model.eval()  # 设置为评估模式
+    weak_model.eval()
+
     strong_agent = MCTS_Agent(strong_model)
     weak_agent = MCTS_Agent(weak_model)
-    s_boards, s_policies, s_values, s_weights = [], [], [], []
-    while not stop_event.is_set():
-        root_bord = GomokuBoard(board_size)
-        player = PLAYER_BLACK
-        while not root_bord.is_terminal() and not stop_event.is_set():
-            if player == PLAYER_BLACK:
-                best_move, pi = strong_agent.run(root_bord, player, is_train=True)
-            elif player == PLAYER_WHITE:
-                best_move, pi = weak_agent.run(root_bord, player, is_train=True)
-            else:
-                raise RuntimeError("错误的执棋者")
-            root_bord.step(best_move)
-            player = -player
-        boards, policies, values, weights = strong_agent.get_train_data()
-        s_boards.extend(boards)
-        s_policies.extend(policies)
-        s_values.extend(values)
-        s_weights.extend(weights)
 
-    for b, p, v, w in zip(s_boards, s_policies, s_values, s_weights):
-        while not stop_event.is_set():
+    for _ in range(max_games):
+        if stop_event.is_set():
+            break
+        board = GomokuBoard(board_size)
+        player = 1  # BLACK
+
+        while not board.is_terminal():
+            if player == 1:
+                move, pi = strong_agent.run(board, player, is_train=True)
+            else:
+                move, pi = weak_agent.run(board, player, is_train=True)
+            board.step(move)
+            player = -player
+
+        boards, policies, values, weights = strong_agent.get_train_data()
+        for b, p, v, w in zip(boards, policies, values, weights):
             try:
                 data_queue.put((b, p.reshape(-1), v, w), timeout=1)
-                break
             except mp.queues.Full:
                 continue
 
