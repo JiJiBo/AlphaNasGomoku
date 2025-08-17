@@ -170,8 +170,8 @@ def train_model(model, train_loader, val_loader, writter, scheduler, optimizer):
         avg_val_value = val_value_loss / len(val_loader)
         avg_val_policy = val_policy_loss / len(val_loader)
 
-        print("Train: ", train_value_loss, train_policy_loss)
-        print("Val: ", val_value_loss, val_policy_loss)
+        print("Train: ", avg_train_value, avg_train_policy)
+        print("Val: ", avg_val_value, avg_val_policy)
         scheduler.step()
         train_losses.append(avg_train_value + avg_train_policy)
         val_losses.append(avg_val_value + avg_val_policy)
@@ -238,8 +238,10 @@ def trian():
         if epoch % 5 == 0:
             model_dir = os.path.join(checkpoints_path, "model")
             os.makedirs(model_dir, exist_ok=True)
-            strong_model.save(os.path.join(model_dir, f"strong_model_{epoch}.pt"))
-    strong_model.save(os.path.join(checkpoints_path, "strong_model.pt"))
+            torch.save(strong_model.state_dict(), os.path.join(model_dir, f"strong_model_{epoch}.pth"))
+    #         strong_model.save(os.path.join(model_dir, f"strong_model_{epoch}.pt"))
+    # strong_model.save(os.path.join(checkpoints_path, "strong_model.pt"))
+    torch.save(strong_model.state_dict(), os.path.join(checkpoints_path, "strong_model.pth"))
 
 
 if __name__ == '__main__':
