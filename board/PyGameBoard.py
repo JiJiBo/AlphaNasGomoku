@@ -35,7 +35,7 @@ class MCTSAgent(Agent):
 
     def select_move(self, board: GomokuBoard, player: int):
         action, probs = self.mcts.run(board, player, self.simulations)
-        self.mcts.get_train_data()
+        # self.mcts.get_train_data()
         return (action.y, action.x)
 
 
