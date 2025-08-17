@@ -15,7 +15,7 @@ from net.GomokuNet import PolicyValueNet
 
 
 class MCTS_Agent:
-    def __init__(self, model: PolicyValueNet, device=None, use_rand=0.1, c_puct=1.4):
+    def __init__(self, model: PolicyValueNet, device=None, use_rand=0.01, c_puct=1.4):
         self.model = model
         self.use_rand = use_rand
         self.c_puct = c_puct
@@ -64,7 +64,7 @@ class MCTS_Agent:
             if child is not None:
                 vis_count = child.visits
                 if vis_count != 0:
-                    Q = total_visits / vis_count
+                    Q = child.wins_value / vis_count
             U = self.c_puct * prior * explore_buff / (vis_count + 1)
             score = Q + U
             # print(score)
@@ -117,7 +117,7 @@ class MCTS_Agent:
             boards.append(node.board.copy().get_planes_3ch())
             policies.append(pi)
             values.append(node.board.get_score())
-            weights.append(math.sqrt(total_visits / train_simulation) * train_buff)
+            weights.append(total_visits / train_simulation * train_buff)
         return self.augment_data(boards, policies, values, weights)
 
     def augment_data(self, boards, policies, values, weights):
@@ -132,7 +132,7 @@ class MCTS_Agent:
 
         for board, policy, value, weight in zip(boards, policies, values, weights):
             value = value.detach().clone().float()
-            weight =weight.detach().clone().detach().float()
+            weight = weight.detach().clone().detach().float()
 
             # D4 对称变换
             for k in range(4):
