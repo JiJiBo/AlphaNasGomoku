@@ -53,7 +53,12 @@ class MCTS_Node:
         actions = list(self.children.keys())
         if legal_actions is not None:
             actions = [a for a in actions if (a.x, a.y) in legal_actions]
-
+        # print(len(actions))
+        # print("==0==")
+        # for ac in actions:
+        #     print(f"{ac.x} {ac.y} {self.board.board[ac.x][ac.y]} ")
+        #
+        # print("==1==")
         if not actions:
             raise ValueError("没有合法动作可选择")
 
@@ -66,6 +71,7 @@ class MCTS_Node:
             max_visits = visits.max()
             candidates = [a for a, v in zip(actions, visits) if v == max_visits]
             best_move = rng.choice(candidates)
+            # print("== == ",best_move.x, best_move.y)
             # 构造 one-hot 策略分布
             pi = np.zeros(len(actions), dtype=np.float64)
             pi[actions.index(best_move)] = 1.0
@@ -88,6 +94,6 @@ class MCTS_Node:
             pi:
         """
         policy = np.zeros((self.board.size, self.board.size), dtype=np.float64)
-        for move,edge in self.children.items():
+        for move, edge in self.children.items():
             policy[move.x, move.y] = edge.prior
-        return  policy
+        return policy

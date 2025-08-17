@@ -37,9 +37,19 @@ def generate_selfplay_data(strong_model, weak_model, num_games, board_size, max_
         workers.append(p)
 
     batch = []
+    total_strong_wins = 0
+    total_weak_wins = 0
+    total_draws = 0
+
     while any(p.is_alive() for p in workers) or not data_queue.empty():
         try:
-            batch.append(data_queue.get(timeout=5))
+            item = data_queue.get(timeout=5)
+            if item[0] == 'results':
+                total_strong_wins += item[1]
+                total_weak_wins += item[2]
+                total_draws += item[3]
+            else:
+                batch.append(item)
         except Exception:
             continue
 
@@ -59,8 +69,15 @@ def generate_selfplay_data(strong_model, weak_model, num_games, board_size, max_
     values = torch.FloatTensor(values)
     weights = torch.FloatTensor(weights)
 
+    total_games = total_strong_wins + total_weak_wins + total_draws
+    if total_games > 0:
+        strong_win_rate = total_strong_wins / total_games
+        weak_win_rate = total_weak_wins / total_games
+        draw_rate = total_draws / total_games
+        print(f"对战统计 - 强模型胜率: {strong_win_rate:.2%}, 弱模型胜率: {weak_win_rate:.2%}, 平局率: {draw_rate:.2%}")
+
     print(f"生成完毕，样本总数: {len(boards)}")
-    return boards, policies, values, weights
+    return boards, policies, values, weights, total_strong_wins, total_weak_wins, total_draws
 
 
 def gen_a_episode_data(strong_model_state_dict, weak_model_state_dict, board_size, data_queue, stop_event, max_games):
@@ -78,6 +95,10 @@ def gen_a_episode_data(strong_model_state_dict, weak_model_state_dict, board_siz
     strong_agent = MCTS_Agent(strong_model)
     weak_agent = MCTS_Agent(weak_model)
 
+    strong_wins = 0
+    weak_wins = 0
+    draws = 0
+
     for _ in range(max_games):
         if stop_event.is_set():
             break
@@ -92,12 +113,27 @@ def gen_a_episode_data(strong_model_state_dict, weak_model_state_dict, board_siz
             board.step(move)
             player = -player
 
+        # 记录胜负结果
+        winner = board.get_winner().value.real
+        if winner == PLAYER_BLACK:  # 假设PLAYER_BLACK是强模型
+            strong_wins += 1
+        elif winner == PLAYER_WHITE:  # 假设PLAYER_WHITE是弱模型
+            weak_wins += 1
+        else:
+            draws += 1
+
         boards, policies, values, weights = strong_agent.get_train_data()
         for b, p, v, w in zip(boards, policies, values, weights):
             try:
                 data_queue.put((b, p.reshape(-1), v, w), timeout=1)
             except mp.queues.Full:
                 continue
+
+    # 将胜负结果也放入队列
+    try:
+        data_queue.put(('results', strong_wins, weak_wins, draws), timeout=1)
+    except mp.queues.Full:
+        pass
 
 
 def train_model(model, train_loader, val_loader, writter, scheduler, optimizer):
@@ -179,12 +215,14 @@ def train_model(model, train_loader, val_loader, writter, scheduler, optimizer):
     return train_losses, val_losses
 
 
-def trian():
+def train():
     board_size = 19
     batch_size = 256
     epochs = 120
     train_ratio = 0.9
     seed = 42
+    win_rate_threshold = 0.55  # 胜率阈值
+    window_size = 10  # 统计最近10局的胜率
 
     torch.manual_seed(seed)
     np.random.seed(seed)
@@ -198,20 +236,54 @@ def trian():
     writer = SummaryWriter(os.path.join(log_dir, time.strftime("%Y%m%d-%H%M%S")))
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     strong_model = PolicyValueNet(board_size=board_size).to(device)
-    # resume_path = "./check_dir/run36/model_step20.pth"
-    # if os.path.exists(resume_path):
-    #     strong_model.load_state_dict(torch.load(resume_path, map_location=device))
     weak_model = PolicyValueNet(board_size=board_size).to(device)
+
+    # 加载预训练模型
+    resume_Dir = "./check_dir/run4/model/strong_model_5.pth"
+    if os.path.exists(resume_Dir):
+        print(f"加载预训练模型: {resume_Dir}")
+        strong_model.load_state_dict(torch.load(resume_Dir, map_location=device))
+        weak_model.load_state_dict(torch.load(resume_Dir, map_location=device))
+    else:
+        print("未找到预训练模型，从头开始训练")
     optimizer = torch.optim.Adam(strong_model.parameters(), lr=1e-3)
     milestones = [30, 60]
     gamma = 0.1
     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=milestones, gamma=gamma)
+
+    # 添加胜率跟踪
+    recent_results = []  # 存储最近的胜负结果 (1=强模型胜, -1=弱模型胜, 0=平局)
+    last_sync_epoch = 0
     eps = tqdm(range(epochs))
     for epoch in eps:
         strong_model.train()
         weak_model.train()
-        sum_boards, sum_policies, sum_values, sum_weights = generate_selfplay_data(strong_model, weak_model, 22,
-                                                                                   board_size)
+        sum_boards, sum_policies, sum_values, sum_weights, strong_wins, weak_wins, draws = generate_selfplay_data(
+            strong_model, weak_model, 22, board_size)
+
+        # 更新最近结果
+        for _ in range(strong_wins):
+            recent_results.append(1)
+        for _ in range(weak_wins):
+            recent_results.append(-1)
+        for _ in range(draws):
+            recent_results.append(0)
+
+        # 保持只记录最近的window_size局
+        recent_results = recent_results[-window_size:]
+
+        # 计算最近胜率
+        if len(recent_results) >= window_size:
+            recent_strong_wins = sum(1 for r in recent_results if r == 1)
+            recent_win_rate = recent_strong_wins / window_size
+
+            # 如果胜率达到阈值，更新弱模型
+            if recent_win_rate >= win_rate_threshold and epoch - last_sync_epoch >= 5:
+                last_sync_epoch = epoch
+                print(f"强模型最近{window_size}局胜率{recent_win_rate:.2%}达到阈值{win_rate_threshold:.0%}，更新弱模型")
+                weak_model.load_state_dict(strong_model.state_dict())
+                recent_results = []  # 重置胜率统计
+
         # 划分训练集和验证集
         num_train = int(len(sum_boards) * train_ratio)
         train_boards = sum_boards[:num_train]
@@ -235,16 +307,21 @@ def trian():
         train_losses, val_losses = train_model(strong_model, train_loader, val_loader, writer, scheduler, optimizer)
         writer.add_scalar('loss/train_losses', mean(train_losses), epoch)
         writer.add_scalar('loss/val_losses', mean(val_losses), epoch)
+
+        # 记录胜率信息
+        if len(recent_results) > 0:
+            current_win_rate = sum(1 for r in recent_results if r == 1) / len(recent_results)
+            writer.add_scalar('win_rate/recent', current_win_rate, epoch)
+
         if epoch % 5 == 0:
             model_dir = os.path.join(checkpoints_path, "model")
             os.makedirs(model_dir, exist_ok=True)
             torch.save(strong_model.state_dict(), os.path.join(model_dir, f"strong_model_{epoch}.pth"))
-    #         strong_model.save(os.path.join(model_dir, f"strong_model_{epoch}.pt"))
-    # strong_model.save(os.path.join(checkpoints_path, "strong_model.pt"))
+
     torch.save(strong_model.state_dict(), os.path.join(checkpoints_path, "strong_model.pth"))
 
 
 if __name__ == '__main__':
     print(f"[训练开始] 开始时间: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}")
-    trian()
+    train()
     print(f"[训练结束] 结束时间: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}")

@@ -1,3 +1,4 @@
+import os
 import sys
 import time
 import random
@@ -36,7 +37,7 @@ class MCTSAgent(Agent):
     def select_move(self, board: GomokuBoard, player: int):
         action, probs = self.mcts.run(board, player, self.simulations)
         # self.mcts.get_train_data()
-        return (action.y, action.x)
+        return (action.x, action.y)
 
 
 class ModelAgent(MCTSAgent):
@@ -164,10 +165,12 @@ class PygameMatch:
             current_player = -current_player
 
 
-
 if __name__ == "__main__":
     # Example usage: human vs random agent
     model = PolicyValueNet()
+    path = "E:\PyPro\AlphaNasGomoku\check_dir\run5\model\strong_model_20.pth"
+    if os.path.exists(path):
+        model.load_state_dict(torch.load(path))
     modelAgent = MCTSAgent(model)
     # game = PygameMatch(modelAgent, modelAgent)
     game = PygameMatch(None, modelAgent)

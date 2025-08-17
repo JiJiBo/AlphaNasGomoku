@@ -16,12 +16,17 @@ class GomokuAction:
     def is_available(self, board: Optional['GomokuBoard']):
         # 检测位置
         if self.x < 0 or self.x > board.size or self.y < 0 or self.y > board.size:
+            # print("检测位置")
             return False
         # 检测是否为空白处
         if board.board[self.x][self.y] != PLAYER_EMPTY:
+            # print(f"不为空白处 {self.x}, {self.y}  {board.board[self.x][self.y]}")
+            # for ac in  board.available():
+            #     print(f"{ac} {board.board[ac[0]][ac[1]]} ")
             return False
         # 检测是否是该他下子
         if self.flag == board.last_move().flag:
+            # print("不该他下子")
             return False
         return True
 
