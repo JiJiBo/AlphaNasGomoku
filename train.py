@@ -239,7 +239,7 @@ def train():
     weak_model = PolicyValueNet(board_size=board_size).to(device)
 
     # 加载预训练模型
-    resume_Dir = "./check_dir/run4/model/strong_model_5.pth"
+    resume_Dir = "./check_dir/run5/model/strong_model_35.pth"
     if os.path.exists(resume_Dir):
         print(f"加载预训练模型: {resume_Dir}")
         strong_model.load_state_dict(torch.load(resume_Dir, map_location=device))
