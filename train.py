@@ -17,7 +17,53 @@ from mcts.MCTS_Agent import MCTS_Agent
 from net.GomokuNet import PolicyValueNet
 
 
-def gen_a_episode_data(strong_model, weak_model, board_size):
+def generate_selfplay_data(strong_model, weak_model, num_games, board_size):
+    # 使用多进程并行生成游戏
+
+    strong_model_state_dict = strong_model.state_dict()
+    weak_model_state_dict = weak_model.state_dict()
+    with multiprocessing.get_context('spawn').Pool(
+            processes=Config.num_workers
+    ) as pool:
+        func = partial(
+            gen_a_episode_data,
+            strong_model_state_dict=strong_model_state_dict,
+            weak_model_state_dict=weak_model_state_dict,
+            board_size=board_size,
+        )
+        results = list(tqdm(
+            pool.imap(func, range(num_games)),
+            total=num_games,
+            desc="Generating games"
+        ))
+
+    # 整合结果
+    boards, policies, values, weights = [], [], [], []
+    for game_boards, game_policies, game_values, game_weights in results:
+        boards.extend(game_boards)
+        policies.extend(game_policies)
+        values.extend(game_values)
+        weights.extend(game_weights)
+
+    boards = torch.stack(boards)
+    policies = torch.stack(policies)
+    values = torch.FloatTensor(values)
+    weights = torch.FloatTensor(weights)
+
+    # 数据增强：旋转和翻转
+    print("len_boards_raw = ", len(boards))
+    boards, policies, values, weights = augment_data(boards, policies, values, weights)
+
+    return boards, policies, values, weights
+
+
+def gen_a_episode_data(_, strong_model_state_dict, weak_model_state_dict, board_size):
+    strong_model = PolicyValueNet(board_size=board_size)
+    strong_model.load_state_dict(strong_model_state_dict)
+    strong_model.eval()  # 设置为评估模式
+    weak_model = PolicyValueNet(board_size=board_size)
+    weak_model.load_state_dict(weak_model_state_dict)
+    weak_model.eval()  # 设置为评估模式
     sum_boards, sum_policies, sum_values, sum_weights = [], [], [], []
     strong_agent = MCTS_Agent(strong_model)
     weak_agent = MCTS_Agent(weak_model)
@@ -150,7 +196,8 @@ def trian():
     for epoch in eps:
         strong_model.train()
         weak_model.train()
-        sum_boards, sum_policies, sum_values, sum_weights = gen_a_episode_data(strong_model, weak_model, board_size)
+        sum_boards, sum_policies, sum_values, sum_weights = generate_selfplay_data(strong_model, weak_model, 22,
+                                                                                   board_size)
         # 划分训练集和验证集
         num_train = int(len(sum_boards) * train_ratio)
         train_boards = sum_boards[:num_train]
