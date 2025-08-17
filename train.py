@@ -168,7 +168,7 @@ def train_model(model, train_loader, val_loader, writter, scheduler, optimizer):
 def trian():
     board_size = 19
     batch_size = 256
-    epochs = 100
+    epochs = 120
     train_ratio = 0.9
     seed = 42
 
@@ -189,7 +189,7 @@ def trian():
     #     strong_model.load_state_dict(torch.load(resume_path, map_location=device))
     weak_model = PolicyValueNet(board_size=board_size).to(device)
     optimizer = torch.optim.Adam(strong_model.parameters(), lr=0.2)
-    milestones = [50, 100, 150]
+    milestones = [30, 60, 90]
     gamma = 0.1
     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=milestones, gamma=gamma)
     eps = tqdm(range(epochs))
