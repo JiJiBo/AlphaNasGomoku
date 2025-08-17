@@ -20,7 +20,7 @@ from net.GomokuNet import PolicyValueNet
 mp.set_start_method('spawn', force=True)
 
 
-def generate_selfplay_data(strong_model, weak_model, num_games, board_size, max_games_per_worker=5):
+def generate_selfplay_data(strong_model, weak_model, num_games, board_size, max_games_per_worker=2):
     device = torch.device('cpu')
     strong_model_state_dict = strong_model.to(device).state_dict()
     weak_model_state_dict = weak_model.to(device).state_dict()
@@ -145,7 +145,7 @@ def train_model(model, train_loader, val_loader, writter, scheduler, optimizer):
 
             loss.backward()
             optimizer.step()
-
+            scheduler.step()
             train_value_loss += weighted_value_loss.item()
             train_policy_loss += weighted_policy_loss.item()
 
@@ -172,7 +172,7 @@ def train_model(model, train_loader, val_loader, writter, scheduler, optimizer):
 
         print("Train: ", avg_train_value, avg_train_policy)
         print("Val: ", avg_val_value, avg_val_policy)
-        scheduler.step()
+
         train_losses.append(avg_train_value + avg_train_policy)
         val_losses.append(avg_val_value + avg_val_policy)
 
@@ -245,4 +245,6 @@ def trian():
 
 
 if __name__ == '__main__':
+    print(f"[训练开始] 开始时间: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}")
     trian()
+    print(f"[训练结束] 结束时间: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}")
