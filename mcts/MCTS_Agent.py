@@ -30,7 +30,7 @@ class MCTS_Agent:
         root_node = MCTS_Node(root_board, player)
         self.visit_nodes.append(root_node)
         for _ in range(number_samples):
-        # for _ in tqdm.trange(number_samples):
+            # for _ in tqdm.trange(number_samples):
             node = root_node
             search_path = [node]
             while node.children:
@@ -121,6 +121,10 @@ class MCTS_Agent:
         return self.augment_data(boards, policies, values, weights)
 
     def augment_data(self, boards, policies, values, weights):
+        boards = torch.from_numpy(np.array(boards)).float()
+        policies = torch.from_numpy(np.array(policies)).float()
+        values = torch.from_numpy(np.array(values)).float()
+        weights = torch.from_numpy(np.array(weights)).float()
         augmented_boards = []
         augmented_policies = []
         augmented_values = []

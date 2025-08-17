@@ -15,7 +15,9 @@ from board.GomukuPlayer import PLAYER_BLACK, PLAYER_WHITE
 from datasets.DataSets import Weighted_Dataset
 from mcts.MCTS_Agent import MCTS_Agent
 from net.GomokuNet import PolicyValueNet
+
 mp.set_start_method('spawn', force=True)
+
 
 def generate_selfplay_data(strong_model, weak_model, num_games, board_size):
     # 使用多进程并行生成游戏
@@ -200,7 +202,7 @@ def trian():
     #     strong_model.load_state_dict(torch.load(resume_path, map_location=device))
     weak_model = PolicyValueNet(board_size=board_size).to(device)
     optimizer = torch.optim.Adam(strong_model.parameters(), lr=1e-3)
-    milestones = [30, 60 ]
+    milestones = [30, 60]
     gamma = 0.1
     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=milestones, gamma=gamma)
     eps = tqdm(range(epochs))
@@ -232,6 +234,11 @@ def trian():
         train_losses, val_losses = train_model(strong_model, train_loader, val_loader, writer, scheduler, optimizer)
         writer.add_scalar('loss/train_losses', mean(train_losses), epoch)
         writer.add_scalar('loss/val_losses', mean(val_losses), epoch)
+        if epoch % 5 == 0:
+            model_dir = os.path.join(checkpoints_path, "model")
+            os.makedirs(model_dir, exist_ok=True)
+            strong_model.save(os.path.join(model_dir, f"strong_model_{epoch}.pt"))
+    strong_model.save(os.path.join(checkpoints_path, "strong_model.pt"))
 
 
 if __name__ == '__main__':
