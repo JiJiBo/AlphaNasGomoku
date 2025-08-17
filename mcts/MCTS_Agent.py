@@ -109,4 +109,35 @@ class MCTS_Agent:
             policies.append(pi)
             values.append(node.board.get_score())
             weights.append(math.sqrt(total_visits / train_simulation) * train_buff)
-        return boards, policies, values, weights
+        return self.augment_data(boards, policies, values, weights)
+
+    def augment_data(self, boards, policies, values, weights):
+        augmented_boards = []
+        augmented_policies = []
+        augmented_values = []
+        augmented_weights = []
+
+        for board, policy, value, weight in zip(boards, policies, values, weights):
+            value = torch.tensor(value).clone().detach().float()
+            weight = torch.tensor(weight).clone().detach().float()
+
+            # D4 对称变换
+            for k in range(4):
+                for o in range(2):
+                    new_board = torch.rot90(board, k, [1, 2])
+                    new_policy = torch.rot90(policy, k, [0, 1])
+                    if o:
+                        new_board = torch.flip(new_board, [2])
+                        new_policy = torch.flip(new_policy, [1])
+
+                    augmented_boards.append(new_board)
+                    augmented_policies.append(new_policy)
+                    augmented_values.append(value)
+                    augmented_weights.append(weight)
+
+        return (
+            torch.stack(augmented_boards),
+            torch.stack(augmented_policies),
+            torch.stack(augmented_values),
+            torch.stack(augmented_weights)
+        )
