@@ -1,10 +1,29 @@
 # 棋盘
 import copy
+from typing import Optional
 
 import numpy as np
 
-from board.GomokuAction import GomokuAction
 from board.GomukuPlayer import PLAYER_EMPTY, Winner, PLAYER_WHITE, PLAYER_BLACK
+
+
+class GomokuAction:
+    def __init__(self, x, y, flag):
+        self.x = x
+        self.y = y
+        self.flag = flag
+
+    def is_available(self, board: Optional['GomokuBoard']):
+        # 检测位置
+        if self.x < 0 or self.x > board.size or self.y < 0 or self.y > board.size:
+            return False
+        # 检测是否为空白处
+        if board.board[self.x][self.y] != PLAYER_EMPTY:
+            return False
+        # 检测是否是该他下子
+        if self.flag == board.last_move().flag:
+            return False
+        return True
 
 
 class GomokuBoard:
