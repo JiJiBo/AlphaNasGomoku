@@ -137,7 +137,7 @@ class GomokuBoard:
         self.board[action.x, action.y] = action.flag
         return self.board, self.get_winner()
 
-    def copy(self):
+    def copy(self)->Optional['GomokuBoard']:
         """
         拷贝棋盘
         :return: 棋盘
