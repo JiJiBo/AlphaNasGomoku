@@ -27,7 +27,7 @@ def generate_selfplay_data(strong_model, weak_model, num_games, board_size):
     data_queue = mp.Queue(maxsize=batch_size)
     stop_event = mp.Event()
     workers = []
-    for i in range(22):
+    for i in range(num_games):
         p = mp.Process(target=gen_a_episode_data, args=(
             i, strong_model_state_dict,
             weak_model_state_dict,
