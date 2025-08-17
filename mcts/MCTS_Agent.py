@@ -113,7 +113,7 @@ class MCTS_Agent:
         train_simulation = 30
         for node in self.visit_nodes:
             total_visits = sum([(edg.child.visits if edg.child is not None else 0) for edg in node.children.values()])
-            best_move, pi = node.best_action(1.2, node.board.available())
+            pi = node.get_train()
             boards.append(node.board.copy().get_planes_3ch())
             policies.append(pi)
             values.append(node.board.get_score())

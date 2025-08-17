@@ -77,3 +77,17 @@ class MCTS_Node:
         pi = w / w.sum()
         best_move = rng.choice(actions, p=pi)
         return best_move, pi
+
+    def get_train(self, ) -> Tuple[GomokuAction, np.ndarray]:
+        """
+        获取当前节点的最佳动作。
+        参数:
+            tau: 温度, 训练期 >0, 实战期 0
+            legal_actions: 可选，只考虑合法动作
+        返回:
+            pi:
+        """
+        policy = np.zeros((self.board.size, self.board.size), dtype=np.float64)
+        for move,edge in self.children.items():
+            policy[move.x, move.y] = edge.prior
+        return  policy
