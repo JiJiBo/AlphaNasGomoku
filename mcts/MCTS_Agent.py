@@ -37,6 +37,7 @@ class MCTS_Agent:
                 node = self.select_child(node)
                 search_path.append(node)
             if node.board.is_terminal():
+                print("结束了一把")
                 value = node.board.get_score()
             else:
                 value = self.expand(node)
