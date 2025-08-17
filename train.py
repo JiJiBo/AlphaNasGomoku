@@ -15,7 +15,8 @@ from board.GomukuPlayer import PLAYER_BLACK, PLAYER_WHITE
 from datasets.DataSets import Weighted_Dataset
 from mcts.MCTS_Agent import MCTS_Agent
 from net.GomokuNet import PolicyValueNet
-
+import multiprocessing
+from functools import partial
 
 def generate_selfplay_data(strong_model, weak_model, num_games, board_size):
     # 使用多进程并行生成游戏
@@ -23,7 +24,7 @@ def generate_selfplay_data(strong_model, weak_model, num_games, board_size):
     strong_model_state_dict = strong_model.state_dict()
     weak_model_state_dict = weak_model.state_dict()
     with multiprocessing.get_context('spawn').Pool(
-            processes=Config.num_workers
+            processes=22
     ) as pool:
         func = partial(
             gen_a_episode_data,
@@ -32,8 +33,8 @@ def generate_selfplay_data(strong_model, weak_model, num_games, board_size):
             board_size=board_size,
         )
         results = list(tqdm(
-            pool.imap(func, range(num_games)),
-            total=num_games,
+            pool.imap(func, range(100)),
+            total=100,
             desc="Generating games"
         ))
 
