@@ -103,7 +103,7 @@ def gen_a_episode_data(strong_model_state_dict, weak_model_state_dict, board_siz
         if stop_event.is_set():
             break
         board = GomokuBoard(board_size)
-        player = 1  # BLACK
+        player = PLAYER_WHITE
 
         while not board.is_terminal():
             if player == 1:
