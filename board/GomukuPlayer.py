@@ -2,11 +2,17 @@
 from enum import Enum, unique
 
 PLAYER_BLACK = 1
-PLAYER_WHITE = 2
+PLAYER_WHITE = -1
 PLAYER_EMPTY = 0
+
+
 # 赢棋者
 @unique
 class Winner(Enum):
-    EMPTY = 0
-    BLACK = 1
-    WHITE = 2
+    EMPTY = PLAYER_EMPTY
+    BLACK = PLAYER_BLACK
+    WHITE = PLAYER_WHITE
+
+
+if __name__ == '__main__':
+    print(Winner.WHITE.value.real)

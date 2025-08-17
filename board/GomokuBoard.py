@@ -88,6 +88,17 @@ class GomokuBoard:
         """
         return len(self.available()) == 0 or self.get_winner() != Winner.EMPTY
 
+    def get_score(self) -> int:
+        """
+        结束后的打分
+        :return: 打分
+        """
+        if self.is_terminal():
+            flag = self.get_winner().value.real
+            return flag * (1 - self.move_count * 1e-3)
+        else:
+            return 0
+
     def step(self, action: GomokuAction) -> [np.ndarray, Winner]:
         """
         合法下棋
