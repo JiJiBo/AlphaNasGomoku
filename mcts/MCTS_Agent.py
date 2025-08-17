@@ -131,8 +131,8 @@ class MCTS_Agent:
         augmented_weights = []
 
         for board, policy, value, weight in zip(boards, policies, values, weights):
-            value = torch.tensor(value).clone().detach().float()
-            weight = torch.tensor(weight).clone().detach().float()
+            value = value.detach().clone().float()
+            weight =weight.detach().clone().detach().float()
 
             # D4 对称变换
             for k in range(4):
