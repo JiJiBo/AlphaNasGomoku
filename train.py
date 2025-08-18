@@ -147,27 +147,36 @@ def gen_a_episode_data(epoch, strong_model_state_dict, weak_model_state_dict, bo
         if stop_event.is_set():
             break
         board = GomokuBoard(board_size)
-        first_player = random.choice([PLAYER_BLACK, PLAYER_WHITE])
-        player = first_player
         # print("第一个打手 ", "黑棋" if player == 1 else "白棋")
         strong_agent = MCTS_Agent(strong_model, tau=tau, c_puct=c_puct, )
         weak_agent = MCTS_Agent(weak_model, tau=tau, c_puct=c_puct, )
+        # 随机决定哪个模型用白棋
+        if random.random() < 0.5:
+            white_agent, black_agent = strong_agent, weak_agent
+            strong_is_white = True
+        else:
+            white_agent, black_agent = weak_agent, strong_agent
+            strong_is_white = False
+
+        player = PLAYER_BLACK
         while not board.is_terminal():
             if player == PLAYER_WHITE:
-                move, pi = strong_agent.run(board, player, is_train=True)
+                move, pi = white_agent.run(board, player, is_train=True)
             else:
-                move, pi = weak_agent.run(board, player, is_train=True)
+                move, pi = black_agent.run(board, player, is_train=True)
             board.step(move)
             player = -player
 
-        # 记录胜负结果
+        # 统计胜负
         winner = board.get_winner().value.real
-        if winner == PLAYER_WHITE:
+        if winner == PLAYER_WHITE and strong_is_white:
             strong_wins += 1
-        elif winner == PLAYER_BLACK:
-            weak_wins += 1
-        else:
+        elif winner == PLAYER_BLACK and not strong_is_white:
+            strong_wins += 1
+        elif winner == 0:
             draws += 1
+        else:
+            weak_wins += 1
 
         boards, policies, values, weights = strong_agent.get_train_data()
         for b, p, v, w in zip(boards, policies, values, weights):
