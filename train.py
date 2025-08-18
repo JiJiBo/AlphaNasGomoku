@@ -80,6 +80,17 @@ def generate_selfplay_data(epoch, strong_model, weak_model, num_games, board_siz
     return boards, policies, values, weights, total_strong_wins, total_weak_wins, total_draws
 
 
+def get_c_puct(epoch, c_start=4.5, c_end=1.0, max_epoch=100):
+    """
+    前 max_epoch 个 epoch 线性从 c_start 减到 c_end
+    之后保持不变
+    """
+    if epoch <= max_epoch:
+        return c_start + (c_end - c_start) * (epoch / max_epoch)
+    else:
+        return c_end
+
+
 def get_tau(epoch: int, mode: str = 'linear',
             tau_start: float = 1.0, tau_min: float = 0.01,
             epoch_start: int = 0, epoch_end: int = 100, decay_rate: float = 0.05) -> float:
@@ -131,6 +142,7 @@ def gen_a_episode_data(epoch, strong_model_state_dict, weak_model_state_dict, bo
     weak_wins = 0
     draws = 0
     tau = get_tau(epoch)
+    c_puct = get_c_puct(epoch)
     for _ in range(max_games):
         if stop_event.is_set():
             break
@@ -138,8 +150,8 @@ def gen_a_episode_data(epoch, strong_model_state_dict, weak_model_state_dict, bo
         first_player = random.choice([PLAYER_BLACK, PLAYER_WHITE])
         player = first_player
         # print("第一个打手 ", "黑棋" if player == 1 else "白棋")
-        strong_agent = MCTS_Agent(strong_model, tau=tau)
-        weak_agent = MCTS_Agent(weak_model, tau=tau)
+        strong_agent = MCTS_Agent(strong_model, tau=tau, c_puct=c_puct, )
+        weak_agent = MCTS_Agent(weak_model, tau=tau, c_puct=c_puct, )
         while not board.is_terminal():
             if player == PLAYER_WHITE:
                 move, pi = strong_agent.run(board, player, is_train=True)
