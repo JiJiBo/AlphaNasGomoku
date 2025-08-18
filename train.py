@@ -172,7 +172,7 @@ def gen_a_episode_data(work_id, epoch, strong_model_state_dict, weak_model_state
         # 统计胜负
         winner = board.get_winner().value.real
         if winner == PLAYER_WHITE:
-            print(f"白棋✌️赢了!")
+            print(f"白棋✌️赢了!", "强势者 是 ", "白棋" if strong_is_white else "黑棋")
         if winner == PLAYER_WHITE and strong_is_white:
             strong_wins += 1
             # print(f"强加一 现在强: {strong_wins} 现在弱:{weak_wins}")
