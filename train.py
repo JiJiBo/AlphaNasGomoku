@@ -161,7 +161,8 @@ def train_model(model, train_loader, val_loader, writer, scheduler, optimizer):
             batch_weights = batch_weights.to(device)
 
             optimizer.zero_grad()
-
+            # 得到 先验概率 pred_policies 和 胜率 pred_values
+            # pred_policies 没有 soft Max
             pred_policies, pred_values = model(batch_boards)
 
             # value 损失

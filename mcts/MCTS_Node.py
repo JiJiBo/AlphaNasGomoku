@@ -22,11 +22,14 @@ class MCTS_Node:
         self.children: Dict[GomokuAction, Edge] = {}
         self.wins_value = 0.0
         self.visits = 0
+        # 当前节点（不是 父节点，也 不是 子节点 ，就是 当前的 节点） 的 先验概率
         self.prior = prior
 
     def update(self, value: float):
+        # 访问 次数 加 1
         self.visits += 1
-        self.wins_value = value
+        # 要 累积 价值
+        self.wins_value += value
 
     def best_action(self, tau: float = 0.0, legal_actions: Optional[List[int]] = None,
                     alpha: float = 0.1, rng: Optional[np.random.Generator] = None) -> Tuple[GomokuAction, np.ndarray]:
@@ -76,8 +79,8 @@ class MCTS_Node:
     def get_train(self, alpha: float = 0.1) -> np.ndarray:
         # 初始化 一个 策略 棋盘
         policy = np.zeros((self.board.size, self.board.size), dtype=np.float64)
-        total_visits = sum(edge.child.visits if edge.child else 0 for edge in self.children.values())
-        total_prior = sum(edge.prior for edge in self.children.values())
+        # total_visits = sum(edge.child.visits if edge.child else 0 for edge in self.children.values())
+        # total_prior = sum(edge.prior for edge in self.children.values())
         # 遍历所有的孩子
         for move, edge in self.children.items():
             # 得到 孩子的 访问次数

@@ -82,7 +82,7 @@ class MCTS_Agent:
         return best_child
 
     def expand(self, node: MCTS_Node):
-        # 得到先验概率和胜率
+        # 得到先验概率（ 已经  log_softmax 处理 ）和胜率
         policy_logits, value = self.model.calc_one_board(torch.from_numpy(node.board.get_planes_3ch()))
         # 得到 空白位置
         moves = node.board.available()
