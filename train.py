@@ -340,7 +340,7 @@ def train():
                 print(f"强模型最近{window_size}局胜率{recent_win_rate:.2%}达到阈值{win_rate_threshold:.0%}，更新弱模型")
                 weak_model.load_state_dict(strong_model.state_dict())
                 recent_results = []  # 重置胜率统计
-        writer.add_scalar('strong_wins', strong_wins, epoch)
+        writer.add_scalar('strong_wins', strong_wins / len(recent_results), epoch)
         # 划分训练集和验证集
         # 打乱数据
         num_samples = len(sum_boards)
