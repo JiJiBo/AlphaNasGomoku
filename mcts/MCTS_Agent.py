@@ -107,7 +107,7 @@ class MCTS_Agent:
         node.wins_value = float(value)
 
     def get_result_action(self, node: MCTS_Node, is_train=False) -> tuple[GomokuAction, np.ndarray]:
-        return node.best_action(1.2 if is_train else 0, node.board.available())
+        return node.best_action(0.9 if is_train else 0, node.board.available())
 
     def get_train_data(self):
         boards, policies, values, weights = [], [], [], []
