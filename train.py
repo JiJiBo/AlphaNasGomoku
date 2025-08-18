@@ -103,7 +103,8 @@ def gen_a_episode_data(strong_model_state_dict, weak_model_state_dict, board_siz
         if stop_event.is_set():
             break
         board = GomokuBoard(board_size)
-        player = PLAYER_WHITE
+        first_player = random.choice([PLAYER_BLACK, PLAYER_WHITE])
+        player = first_player
 
         while not board.is_terminal():
             if player == 1:
@@ -136,12 +137,11 @@ def gen_a_episode_data(strong_model_state_dict, weak_model_state_dict, board_siz
         pass
 
 
-def train_model(model, train_loader, val_loader, writter, scheduler, optimizer):
+def train_model(model, train_loader, val_loader, writer, scheduler, optimizer):
     """训练模型"""
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model.to(device)
     value_criterion = nn.MSELoss(reduction='none')
-    policy_criterion = nn.KLDivLoss(reduction='none')
     val_value_criterion = nn.MSELoss()
     val_policy_criterion = nn.KLDivLoss(reduction='batchmean')
     train_losses = []
@@ -149,41 +149,50 @@ def train_model(model, train_loader, val_loader, writter, scheduler, optimizer):
 
     print(f"开始训练，使用设备: {device}")
 
-    for epoch in range(3):
-        # 训练阶段
+    for epoch in range(1):  # 外层train已经控制epoch，所以这里只跑一次
         model.train()
-        train_value_loss, train_policy_loss = 0, 0
+        train_value_loss, train_policy_loss = [], []
 
         for batch_boards, batch_policies, batch_values, batch_weights in tqdm(train_loader,
-                                                                              desc=f'Epoch {epoch + 1} '):
+                                                                              desc=f'Train epoch'):
             batch_boards = batch_boards.to(device)
+            # 保证策略是概率分布
             batch_policies = batch_policies.to(device).view(batch_policies.size(0), -1)
-            batch_values = batch_values.to(device).unsqueeze(1)  # 添加维度匹配
+            batch_policies = F.softmax(batch_policies, dim=1)  # 归一化
+            batch_values = batch_values.to(device).unsqueeze(1)
             batch_weights = batch_weights.to(device)
 
             optimizer.zero_grad()
 
             pred_policies, pred_values = model(batch_boards)
 
-            # 计算损失
+            # value 损失
             value_loss = value_criterion(pred_values, batch_values).squeeze(1)
-            policy_loss = -(batch_policies * F.log_softmax(pred_policies, dim=1)).sum(dim=1)
 
-            # print(value_loss.shape)
-            # print(policy_loss.shape)
-            # print(pred_values.shape)
-            # print(pred_policies.shape)
+            # policy 损失（交叉熵形式）
+            log_probs = F.log_softmax(pred_policies, dim=1)
+            policy_loss = -(batch_policies * log_probs).sum(dim=1)
 
+            # 加权平均
             weighted_value_loss = (value_loss * batch_weights).mean()
             weighted_policy_loss = (policy_loss * batch_weights).mean()
 
-            loss = 2 * weighted_value_loss + weighted_policy_loss
+            # -------- 动态平衡权重 --------
+            # 根据标准差自适应缩放，避免某一项过大
+            with torch.no_grad():
+                std_v = value_loss.std().item() + 1e-6
+                std_p = policy_loss.std().item() + 1e-6
+                alpha = std_p / (std_v + std_p)
+                beta = std_v / (std_v + std_p)
+
+            loss = alpha * weighted_value_loss + beta * weighted_policy_loss
 
             loss.backward()
             optimizer.step()
 
-            train_value_loss += weighted_value_loss.item()
-            train_policy_loss += weighted_policy_loss.item()
+            train_value_loss.append(weighted_value_loss.item())
+            train_policy_loss.append(weighted_policy_loss.item())
+
         scheduler.step()
         model.eval()
         val_value_loss, val_policy_loss = 0, 0
@@ -191,18 +200,18 @@ def train_model(model, train_loader, val_loader, writter, scheduler, optimizer):
             for boards, policies, values, weights in val_loader:
                 boards = boards.to(device)
                 policies = policies.to(device).view(policies.size(0), -1)
+                policies = F.softmax(policies, dim=1)  # 保证验证时也是分布
                 values = values.to(device).unsqueeze(1)
 
                 pred_policies, pred_values = model(boards)
                 val_value_loss += val_value_criterion(pred_values, values).item()
                 val_policy_loss += val_policy_criterion(
                     F.log_softmax(pred_policies, dim=1),
-                    policies.view(-1, policies.size(-1))
+                    policies
                 ).item()
 
-        # 计算平均损失
-        avg_train_value = train_value_loss / len(train_loader)
-        avg_train_policy = train_policy_loss / len(train_loader)
+        avg_train_value = np.mean(train_value_loss)
+        avg_train_policy = np.mean(train_policy_loss)
         avg_val_value = val_value_loss / len(val_loader)
         avg_val_policy = val_policy_loss / len(val_loader)
 
@@ -218,7 +227,7 @@ def train_model(model, train_loader, val_loader, writter, scheduler, optimizer):
 def train():
     board_size = 19
     batch_size = 256
-    epochs = 12000
+    epochs = 1200
     train_ratio = 0.9
     seed = 42
     win_rate_threshold = 0.55  # 胜率阈值
@@ -239,7 +248,7 @@ def train():
     weak_model = PolicyValueNet(board_size=board_size).to(device)
 
     # 加载预训练模型
-    resume_Dir = "./check_dir/run5/model/strong_model_35.pth"
+    resume_Dir = "./check_dir/run3/model/strong_model_90.pth"
     if os.path.exists(resume_Dir):
         print(f"加载预训练模型: {resume_Dir}")
         strong_model.load_state_dict(torch.load(resume_Dir, map_location=device))
@@ -247,9 +256,7 @@ def train():
     else:
         print("未找到预训练模型，从头开始训练")
     optimizer = torch.optim.Adam(strong_model.parameters(), lr=1e-3)
-    milestones = [30, 60]
-    gamma = 0.1
-    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=milestones, gamma=gamma)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
 
     # 添加胜率跟踪
     recent_results = []  # 存储最近的胜负结果 (1=强模型胜, -1=弱模型胜, 0=平局)
