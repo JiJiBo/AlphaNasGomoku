@@ -92,9 +92,6 @@ def gen_a_episode_data(strong_model_state_dict, weak_model_state_dict, board_siz
     weak_model.load_state_dict(weak_model_state_dict)
     weak_model.eval()
 
-    strong_agent = MCTS_Agent(strong_model)
-    weak_agent = MCTS_Agent(weak_model)
-
     strong_wins = 0
     weak_wins = 0
     draws = 0
@@ -105,9 +102,10 @@ def gen_a_episode_data(strong_model_state_dict, weak_model_state_dict, board_siz
         board = GomokuBoard(board_size)
         first_player = random.choice([PLAYER_BLACK, PLAYER_WHITE])
         player = first_player
-
+        strong_agent = MCTS_Agent(strong_model)
+        weak_agent = MCTS_Agent(weak_model)
         while not board.is_terminal():
-            if player == 1:
+            if player == PLAYER_BLACK:
                 move, pi = strong_agent.run(board, player, is_train=True)
             else:
                 move, pi = weak_agent.run(board, player, is_train=True)
@@ -116,9 +114,9 @@ def gen_a_episode_data(strong_model_state_dict, weak_model_state_dict, board_siz
 
         # 记录胜负结果
         winner = board.get_winner().value.real
-        if winner == PLAYER_BLACK:  # 假设PLAYER_BLACK是强模型
+        if winner == PLAYER_BLACK:
             strong_wins += 1
-        elif winner == PLAYER_WHITE:  # 假设PLAYER_WHITE是弱模型
+        elif winner == PLAYER_WHITE:
             weak_wins += 1
         else:
             draws += 1
