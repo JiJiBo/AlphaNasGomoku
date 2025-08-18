@@ -20,7 +20,7 @@ from net.GomokuNet import PolicyValueNet
 mp.set_start_method('spawn', force=True)
 
 
-def generate_selfplay_data(epoch, strong_model, weak_model, num_games, board_size, max_games_per_worker=2, ):
+def generate_selfplay_data(epoch, strong_model, weak_model, num_games, board_size, max_games_per_worker=5, ):
     device = torch.device('cpu')
     strong_model_state_dict = strong_model.to(device).state_dict()
     weak_model_state_dict = weak_model.to(device).state_dict()
@@ -127,14 +127,13 @@ def get_tau(epoch: int, mode: str = 'linear',
 
 def gen_a_episode_data(epoch, strong_model_state_dict, weak_model_state_dict, board_size, data_queue, stop_event,
                        max_games):
-    device = torch.device('cpu')
     torch.set_num_threads(min(mp.cpu_count() // 4, 4))
 
-    strong_model = PolicyValueNet(board_size=board_size).to(device)
+    strong_model = PolicyValueNet(board_size=board_size)
     strong_model.load_state_dict(strong_model_state_dict)
     strong_model.eval()
 
-    weak_model = PolicyValueNet(board_size=board_size).to(device)
+    weak_model = PolicyValueNet(board_size=board_size)
     weak_model.load_state_dict(weak_model_state_dict)
     weak_model.eval()
 
@@ -349,6 +348,8 @@ def train():
                 print(f"强模型最近{window_size}局胜率{recent_win_rate:.2%}达到阈值{win_rate_threshold:.0%}，更新弱模型")
                 weak_model.load_state_dict(strong_model.state_dict())
                 recent_results = []  # 重置胜率统计
+            else:
+                print(f"强模型最近{window_size}局胜率{recent_win_rate:.2%}")
         total_strong_wins = sum(1 for i in recent_results if i == 1)
 
         writer.add_scalar('strong_wins', total_strong_wins / len(recent_results), epoch)
@@ -384,11 +385,6 @@ def train():
         train_losses, val_losses = train_model(strong_model, train_loader, val_loader, writer, scheduler, optimizer)
         writer.add_scalar('loss/train_losses', mean(train_losses), epoch)
         writer.add_scalar('loss/val_losses', mean(val_losses), epoch)
-
-        # 记录胜率信息
-        if len(recent_results) > 0:
-            current_win_rate = sum(1 for r in recent_results if r == 1) / len(recent_results)
-            writer.add_scalar('win_rate/recent', current_win_rate, epoch)
 
         if epoch % 10 == 0:
             model_dir = os.path.join(checkpoints_path, "model")
