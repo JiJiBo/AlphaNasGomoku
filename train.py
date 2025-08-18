@@ -350,7 +350,7 @@ def train():
         # 计算最近胜率
         if len(recent_results) >= window_size:
             recent_strong_wins = sum(1 for r in recent_results if r == 1)
-            recent_win_rate = recent_strong_wins / window_size
+            recent_win_rate = recent_strong_wins / len(recent_results)
 
             # 如果胜率达到阈值，更新弱模型
             if recent_win_rate >= win_rate_threshold and epoch - last_sync_epoch >= 20:
