@@ -178,7 +178,7 @@ def gen_a_episode_data(work_id, epoch, strong_model_state_dict, weak_model_state
             draws += 1
         else:
             weak_wins += 1
-
+        print(f"赢家是{winner}")
         boards, policies, values, weights = strong_agent.get_train_data()
         for b, p, v, w in zip(boards, policies, values, weights):
             try:
