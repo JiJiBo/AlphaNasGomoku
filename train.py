@@ -31,7 +31,7 @@ def generate_selfplay_data(epoch, strong_model, weak_model, num_games, board_siz
     workers = []
     for i in range(num_games):
         p = mp.Process(target=gen_a_episode_data,
-                       args=(epoch,strong_model_state_dict, weak_model_state_dict, board_size, data_queue, stop_event,
+                       args=(epoch, strong_model_state_dict, weak_model_state_dict, board_size, data_queue, stop_event,
                              max_games_per_worker))
         p.start()
         workers.append(p)
@@ -78,6 +78,8 @@ def generate_selfplay_data(epoch, strong_model, weak_model, num_games, board_siz
 
     print(f"生成完毕，样本总数: {len(boards)}")
     return boards, policies, values, weights, total_strong_wins, total_weak_wins, total_draws
+
+
 def get_tau(epoch: int, mode: str = 'linear',
             tau_start: float = 1.0, tau_min: float = 0.01,
             epoch_start: int = 0, epoch_end: int = 100, decay_rate: float = 0.05) -> float:
@@ -112,8 +114,8 @@ def get_tau(epoch: int, mode: str = 'linear',
         raise ValueError("mode must be 'linear' or 'exp'")
 
 
-
-def gen_a_episode_data(epoch,strong_model_state_dict, weak_model_state_dict, board_size, data_queue, stop_event, max_games):
+def gen_a_episode_data(epoch, strong_model_state_dict, weak_model_state_dict, board_size, data_queue, stop_event,
+                       max_games):
     device = torch.device('cpu')
     torch.set_num_threads(min(mp.cpu_count() // 4, 4))
 
@@ -180,7 +182,7 @@ def train_model(model, train_loader, val_loader, writer, scheduler, optimizer):
 
     print(f"开始训练，使用设备: {device}")
 
-    for epoch in range(1):  # 外层train已经控制epoch，所以这里只跑一次
+    for epoch in range(3):  # 外层train已经控制epoch，所以这里只跑一次
         model.train()
         train_value_loss, train_policy_loss = [], []
 
@@ -258,7 +260,7 @@ def train_model(model, train_loader, val_loader, writer, scheduler, optimizer):
 
 
 def train():
-    board_size = 19
+    board_size = 15
     batch_size = 256
     epochs = 200
     train_ratio = 0.9
@@ -326,7 +328,7 @@ def train():
                 print(f"强模型最近{window_size}局胜率{recent_win_rate:.2%}达到阈值{win_rate_threshold:.0%}，更新弱模型")
                 weak_model.load_state_dict(strong_model.state_dict())
                 recent_results = []  # 重置胜率统计
-
+        writer.add_scalar('strong_wins', strong_wins, epoch)
         # 划分训练集和验证集
         # 打乱数据
         num_samples = len(sum_boards)
