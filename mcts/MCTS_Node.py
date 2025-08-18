@@ -14,87 +14,57 @@ class Edge:
 
 class MCTS_Node:
     def __init__(self, board: GomokuBoard, player: int, parent: Optional['MCTS_Node'] = None,
-                 prior_p: float = 1.0):
+                 prior: float = 1.0):
         self.board = board
         self.player = player
         self.parent = parent
-        # 值
-        # 子节点
-        self.children: Dict[GomokuAction, Edge] = {}  # 动作 -> 子节点(node,prior)
-
-        # MCTS 统计
-        self.wins_value = 0.0  # 累积价值 (Q 部分的分子)
-        self.visits = 0  # 访问次数 (Q 部分的分母)
-
-        # PUCT 相关
-        self.prior_p = prior_p  # 来自策略网络的先验概率 P(s,a)
+        self.children: Dict[GomokuAction, Edge] = {}
+        self.wins_value = 0.0
+        self.visits = 0
+        self.prior = prior
 
     def update(self, value: float):
-        """回溯时更新本节点的价值统计"""
         self.visits += 1
         self.wins_value += value
 
     def best_action(self, tau: float = 0.0, legal_actions: Optional[List[int]] = None,
-                    rng: Optional[np.random.Generator] = None) -> Tuple[GomokuAction, np.ndarray]:
-        """
-        获取当前节点的最佳动作。
-        参数:
-            tau: 温度, 训练期 >0, 实战期 0
-            legal_actions: 可选，只考虑合法动作
-            rng: np.random.Generator, 可用于采样
-        返回:
-            best_move: 选中的动作
-            pi: 所有动作的策略分布 (顺序与 self.children.keys() 对应)
-        """
+                    alpha: float = 0.1, rng: Optional[np.random.Generator] = None) -> Tuple[GomokuAction, np.ndarray]:
         if rng is None:
             rng = np.random.default_rng()
 
-        # 筛选合法动作
         actions = list(self.children.keys())
         if legal_actions is not None:
             actions = [a for a in actions if (a.x, a.y) in legal_actions]
-        # print(len(actions))
-        # print("==0==")
-        # for ac in actions:
-        #     print(f"{ac.x} {ac.y} {self.board.board[ac.x][ac.y]} ")
-        #
-        # print("==1==")
         if not actions:
             raise ValueError("没有合法动作可选择")
 
-        # 统计访问次数
-        visits = np.array([self.children[a].child.visits if self.children[a].child else 0 for a in actions],
-                          dtype=np.float64)
+        visits = np.array([self.children[a].child.visits if self.children[a].child else 0 for a in actions], dtype=np.float64)
+        priors = np.array([self.children[a].prior for a in actions], dtype=np.float64)
 
-        # 温度为0时，贪心选择
         if tau <= 1e-6:
             max_visits = visits.max()
             candidates = [a for a, v in zip(actions, visits) if v == max_visits]
+            if len(candidates) > 1:
+                # tie-breaker using prior
+                best_prior = max(self.children[a].prior for a in candidates)
+                candidates = [a for a in candidates if self.children[a].prior == best_prior]
             best_move = rng.choice(candidates)
-            # print("== == ",best_move.x, best_move.y)
-            # 构造 one-hot 策略分布
             pi = np.zeros(len(actions), dtype=np.float64)
             pi[actions.index(best_move)] = 1.0
             return best_move, pi
 
-        # 训练期，温度抽样
-        eps = 1e-12
-        w = np.power(np.maximum(visits, eps), 1.0 / tau)
+        # tau > 0, 将访问次数与 prior 混合
+        w = (visits + alpha * priors) ** (1.0 / tau)
         pi = w / w.sum()
         best_move = rng.choice(actions, p=pi)
         return best_move, pi
 
-    def get_train(self) -> np.ndarray:
-        """
-        获取训练用的策略分布 π(s)，基于访问次数 N(s,a) 归一化。
-        返回:
-            policy: [board_size, board_size] 的策略分布矩阵
-        """
+    def get_train(self, alpha: float = 0.1) -> np.ndarray:
         policy = np.zeros((self.board.size, self.board.size), dtype=np.float64)
         total_visits = sum(edge.child.visits if edge.child else 0 for edge in self.children.values())
-        if total_visits > 0:
-            for move, edge in self.children.items():
-                visits = edge.child.visits if edge.child else 0
-                policy[move.x, move.y] = visits / total_visits
+        total_prior = sum(edge.prior for edge in self.children.values())
+        for move, edge in self.children.items():
+            visits = edge.child.visits if edge.child else 0
+            policy[move.x, move.y] = visits + alpha * edge.prior
+        policy /= policy.sum() if policy.sum() > 0 else 1
         return policy
-

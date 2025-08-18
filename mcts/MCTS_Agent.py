@@ -30,7 +30,6 @@ class MCTS_Agent:
         root_node = MCTS_Node(root_board, player)
         self.visit_nodes.append(root_node)
         for _ in range(number_samples):
-            # for _ in tqdm.trange(number_samples):
             node = root_node
             search_path = [node]
             while node.children:
@@ -46,65 +45,50 @@ class MCTS_Agent:
         return self.get_result_action(root_node, is_train=is_train)
 
     def select_child(self, node: MCTS_Node):
-        # print("=="*100)
         total_visits = sum([(edg.child.visits if edg.child is not None else 0) for edg in node.children.values()])
-        explore_buff = math.pow(total_visits, 0.5)
-        best_move: [GomokuAction, None] = None
+        explore_buff = math.sqrt(total_visits)
         best_score = -float('inf')
-        best_child: [MCTS_Node, None] = None
+        best_child = None
+        best_move = None
         best_edg = None
-        count = 0
+
         for action, edg in node.children.items():
             if not action.is_available(node.board):
-                count += 1
                 continue
             child, prior = edg.child, edg.prior
-            vis_count = 0
-            Q = 0
-            if child is not None:
-                vis_count = child.visits
-                if vis_count != 0:
-                    Q = child.wins_value / vis_count
+            vis_count = child.visits if child else 0
+            Q = child.wins_value / vis_count if vis_count > 0 else 0
             U = self.c_puct * prior * explore_buff / (vis_count + 1)
             score = Q + U
-            # print(score)
             if score > best_score:
                 best_score = score
                 best_child = child
                 best_move = action
                 best_edg = edg
-                # print(action)
+
         if best_child is None and best_move is not None:
-            # 使用深拷贝，保证每个节点棋盘独立
             new_board = node.board.copy()
             new_board.step(best_move)
-            best_child = MCTS_Node(new_board, -best_move.flag, parent=node, prior_p=best_edg.prior)
+            best_child = MCTS_Node(new_board, -best_move.flag, parent=node, prior=best_edg.prior)
             node.children[best_move] = Edge(best_child, best_edg.prior)
-        elif best_move is None:
-            print(count)
-            print(len(node.children))
         return best_child
 
     def expand(self, node: MCTS_Node) -> float:
-        policy_logits, value = self.model.calc_one_board(
-            torch.from_numpy(node.board.get_planes_3ch())
-        )
+        policy_logits, value = self.model.calc_one_board(torch.from_numpy(node.board.get_planes_3ch()))
         moves = node.board.available()
         priors = np.array([policy_logits[x, y] for x, y in moves], dtype=np.float32)
-        s = float(priors.sum())
-        if s > 0:
-            priors /= s
-        else:
-            priors = np.ones(len(moves), dtype=np.float32) / max(1, len(moves))
+        s = priors.sum()
+        priors = priors / s if s > 0 else np.ones(len(moves), dtype=np.float32) / max(1, len(moves))
         priors = [max(0.0, p + random.normalvariate(0, self.use_rand)) for p in priors]
-        ps = float(sum(priors))
+        ps = sum(priors)
         priors = [p / ps if ps > 0 else 1.0 / len(priors) for p in priors]
+
         for (x, y), p in zip(moves, priors):
             node.children[GomokuAction(x, y, node.player)] = Edge(None, float(p))
 
         return float(value)
 
-    def get_result_action(self, node: MCTS_Node, is_train=False) -> tuple[GomokuAction, ndarray]:
+    def get_result_action(self, node: MCTS_Node, is_train=False) -> tuple[GomokuAction, np.ndarray]:
         return node.best_action(1.2 if is_train else 0, node.board.available())
 
     def get_train_data(self):
@@ -125,6 +109,7 @@ class MCTS_Agent:
         policies = torch.from_numpy(np.array(policies)).float()
         values = torch.from_numpy(np.array(values)).float()
         weights = torch.from_numpy(np.array(weights)).float()
+
         augmented_boards = []
         augmented_policies = []
         augmented_values = []
@@ -132,9 +117,7 @@ class MCTS_Agent:
 
         for board, policy, value, weight in zip(boards, policies, values, weights):
             value = value.detach().clone().float()
-            weight = weight.detach().clone().detach().float()
-
-            # D4 对称变换
+            weight = weight.detach().clone().float()
             for k in range(4):
                 for o in range(2):
                     new_board = torch.rot90(board, k, [1, 2])
@@ -142,7 +125,6 @@ class MCTS_Agent:
                     if o:
                         new_board = torch.flip(new_board, [2])
                         new_policy = torch.flip(new_policy, [1])
-
                     augmented_boards.append(new_board)
                     augmented_policies.append(new_policy)
                     augmented_values.append(value)
