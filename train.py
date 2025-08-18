@@ -155,7 +155,7 @@ def gen_a_episode_data(work_id, epoch, strong_model_state_dict, weak_model_state
         black_agent, white_agent = strong_agent, weak_agent
         strong_is_white = False
 
-        player = PLAYER_WHITE
+        player = PLAYER_BLACK
         # print(f"{work_id} 第一个打手 ", "黑棋" if player == 1 else "白棋", "强势者 是 ", "白棋" if  strong_is_white else "黑棋")
         while not board.is_terminal():
             if player == PLAYER_WHITE:

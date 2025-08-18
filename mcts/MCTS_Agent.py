@@ -84,7 +84,7 @@ class MCTS_Agent:
 
     def expand(self, node: MCTS_Node):
         # 得到先验概率（ 已经  log_softmax 处理 ）和胜率
-        policy_logits, value = self.model.calc_one_board(torch.from_numpy(node.board.get_planes_3ch()))
+        policy_logits, value = self.model.calc_one_board(torch.from_numpy(node.board.get_planes_3ch(node.player)))
         # 得到 空白位置
         moves = node.board.available()
         # 筛选可用的（空白位置的）先验概率
@@ -120,7 +120,7 @@ class MCTS_Agent:
             # 得到 这个 节点的 动作 策略 :: 已经 归一化 了
             pi = node.get_train()
             # 得到 棋盘 数据
-            boards.append(node.board.copy().get_planes_3ch())
+            boards.append(node.board.copy().get_planes_3ch(node.player))
             policies.append(pi)
             # 得到 当前节点 的 价值
             values.append(node.wins_value)

@@ -153,9 +153,9 @@ class GomokuBoard:
         new_board.move_count = self.move_count
         return new_board
 
-    def get_planes_3ch(self):
+    def get_planes_3ch(self, flag):
         b = self.board
-        me = (b == 1).astype(np.float32)
-        opp = (b == -1).astype(np.float32)
+        me = (b == flag).astype(np.float32)
+        opp = (b == -flag).astype(np.float32)
         empty = (b == 0).astype(np.float32)
         return np.stack([me, opp, empty], axis=0).astype(np.float32)
