@@ -211,7 +211,7 @@ def train_model(model, train_loader, val_loader, writer, scheduler, optimizer):
     val_losses = []
 
     print(f"开始训练，使用设备: {device}")
-
+    print(f"[训练开始] 开始时间: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}")
     for epoch in range(3):  # 外层train已经控制epoch，所以这里只跑一次
         model.train()
         train_value_loss, train_policy_loss = [], []
