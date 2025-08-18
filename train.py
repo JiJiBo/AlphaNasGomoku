@@ -296,7 +296,7 @@ def train():
     train_ratio = 0.9
     seed = 42
     win_rate_threshold = 0.55  # 胜率阈值
-    window_size = 20
+    window_size = 100 * 10
 
     torch.manual_seed(seed)
     np.random.seed(seed)
@@ -347,19 +347,16 @@ def train():
         # 保持只记录最近的window_size局
         recent_results = recent_results[-window_size:]
 
-        # 计算最近胜率
-        if len(recent_results) >= window_size:
-            recent_strong_wins = recent_results.count(1)
-            recent_win_rate = recent_strong_wins / len(recent_results)
-
-            # 如果胜率达到阈值，更新弱模型
-            if recent_win_rate >= win_rate_threshold and epoch - last_sync_epoch >= 20:
-                last_sync_epoch = epoch
-                print(f"强模型最近{window_size}局胜率{recent_win_rate:.2%}达到阈值{win_rate_threshold:.0%}，更新弱模型")
-                weak_model.load_state_dict(strong_model.state_dict())
-                recent_results = []  # 重置胜率统计
-            else:
-                print(f"强模型最近{window_size}局胜率{recent_win_rate:.2%}")
+        recent_strong_wins = recent_results.count(1)
+        recent_win_rate = recent_strong_wins / len(recent_results)
+        # 如果胜率达到阈值，更新弱模型
+        if recent_win_rate >= win_rate_threshold and epoch - last_sync_epoch >= 20:
+            last_sync_epoch = epoch
+            print(f"强模型最近{window_size}局胜率{recent_win_rate:.2%}达到阈值{win_rate_threshold:.0%}，更新弱模型")
+            weak_model.load_state_dict(strong_model.state_dict())
+            recent_results = []  # 重置胜率统计
+        else:
+            print(f"强模型最近{window_size}局胜率{recent_win_rate:.2%}")
         total_strong_wins = recent_results.count(1)
 
         writer.add_scalar('strong_wins', total_strong_wins / len(recent_results), epoch)
