@@ -31,7 +31,8 @@ def generate_selfplay_data(epoch, strong_model, weak_model, num_games, board_siz
     workers = []
     for i in range(num_games):
         p = mp.Process(target=gen_a_episode_data,
-                       args=(epoch, strong_model_state_dict, weak_model_state_dict, board_size, data_queue, stop_event,
+                       args=(i, epoch, strong_model_state_dict, weak_model_state_dict, board_size, data_queue,
+                             stop_event,
                              max_games_per_worker))
         p.start()
         workers.append(p)
@@ -125,7 +126,8 @@ def get_tau(epoch: int, mode: str = 'linear',
         raise ValueError("mode must be 'linear' or 'exp'")
 
 
-def gen_a_episode_data(epoch, strong_model_state_dict, weak_model_state_dict, board_size, data_queue, stop_event,
+def gen_a_episode_data(work_id, epoch, strong_model_state_dict, weak_model_state_dict, board_size, data_queue,
+                       stop_event,
                        max_games):
     torch.set_num_threads(min(mp.cpu_count() // 4, 4))
 
@@ -142,7 +144,7 @@ def gen_a_episode_data(epoch, strong_model_state_dict, weak_model_state_dict, bo
     draws = 0
     tau = get_tau(epoch)
     c_puct = get_c_puct(epoch)
-    for _ in range(max_games):
+    for _ in tqdm(range(max_games), desc=f"work: {work_id} - epoch: {epoch}"):
         if stop_event.is_set():
             break
         board = GomokuBoard(board_size)
