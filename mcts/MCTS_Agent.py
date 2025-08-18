@@ -35,18 +35,20 @@ class MCTS_Agent:
             while node.children:
                 node = self.select_child(node)
                 search_path.append(node)
-            if node.board.is_terminal():
-                value = node.board.get_score()
-            else:
-                value = self.expand(node)
+            if not node.board.is_terminal():
+                self.expand(node)
+            value = node.board.get_score()
             for n in reversed(search_path):
                 n.update(value)
                 value = -value
         return self.get_result_action(root_node, is_train=is_train)
 
     def select_child(self, node: MCTS_Node):
+        # 得到当前节点的访问次数
         total_visits = sum([(edg.child.visits if edg.child is not None else 0) for edg in node.children.values()])
+        # 开平方
         explore_buff = math.sqrt(total_visits)
+
         best_score = -float('inf')
         best_child = None
         best_move = None
@@ -73,20 +75,30 @@ class MCTS_Agent:
             node.children[best_move] = Edge(best_child, best_edg.prior)
         return best_child
 
-    def expand(self, node: MCTS_Node) -> float:
+    def expand(self, node: MCTS_Node):
+        # 得到先验概率和胜率
         policy_logits, value = self.model.calc_one_board(torch.from_numpy(node.board.get_planes_3ch()))
+        # 得到 空白位置
         moves = node.board.available()
+        # 筛选可用的（空白位置的）先验概率
         priors = np.array([policy_logits[x, y] for x, y in moves], dtype=np.float32)
+        # 求和，为先验概率归一化做准备
         s = priors.sum()
+        # 对 先验概率 -> priors  进行归一化 。如果s不大于0， 先验概率 为 1/len(可用位置)   但是肯定进行了归一化
         priors = priors / s if s > 0 else np.ones(len(moves), dtype=np.float32) / max(1, len(moves))
+        # 对 先验概率 进行 扰动
         priors = [max(0.0, p + random.normalvariate(0, self.use_rand)) for p in priors]
+        # 再次 求出 先验概率 的 和
         ps = sum(priors)
+        # 再次 归一化 得到 最终 的  priors -> 先验概率
         priors = [p / ps if ps > 0 else 1.0 / len(priors) for p in priors]
 
         for (x, y), p in zip(moves, priors):
             node.children[GomokuAction(x, y, node.player)] = Edge(None, float(p))
+        # 最终 总结
+        # 经过 expand 神经网络 的 输出，胜率 赋予 了 根节点 。 动作 赋予 了 子节点 的 key 。
+        # edge 的 prior 是 下子 的 概率 ， 不是 胜率。
         node.wins_value = float(value)
-        return float(value)
 
     def get_result_action(self, node: MCTS_Node, is_train=False) -> tuple[GomokuAction, np.ndarray]:
         return node.best_action(1.2 if is_train else 0, node.board.available())
