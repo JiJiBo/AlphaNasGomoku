@@ -38,7 +38,7 @@ class MCTS_Agent:
                 search_path.append(node)
             if not node.board.is_terminal():
                 self.expand(node)
-            value = node.board.get_score() * node.player
+            value = node.board.get_score()
             for n in reversed(search_path):
                 n.update(value)
                 value = -value
