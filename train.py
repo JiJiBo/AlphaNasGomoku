@@ -148,7 +148,7 @@ def gen_a_episode_data(work_id, epoch, strong_model_state_dict, weak_model_state
         if stop_event.is_set():
             break
         board = GomokuBoard(board_size)
-        # print("第一个打手 ", "黑棋" if player == 1 else "白棋")
+
         strong_agent = MCTS_Agent(strong_model, tau=tau, c_puct=c_puct, )
         weak_agent = MCTS_Agent(weak_model, tau=tau, c_puct=c_puct, )
         # 随机决定哪个模型用白棋
@@ -160,6 +160,7 @@ def gen_a_episode_data(work_id, epoch, strong_model_state_dict, weak_model_state
             strong_is_white = False
 
         player = PLAYER_BLACK
+        print(f"{work_id} 第一个打手 ", "黑棋" if player == 1 else "白棋", "强势者 是 ", "白棋" if  strong_is_white else "黑棋")
         while not board.is_terminal():
             if player == PLAYER_WHITE:
                 move, pi = white_agent.run(board, player, is_train=True)
@@ -172,13 +173,18 @@ def gen_a_episode_data(work_id, epoch, strong_model_state_dict, weak_model_state
         winner = board.get_winner().value.real
         if winner == PLAYER_WHITE and strong_is_white:
             strong_wins += 1
+            print(f"强加一 现在强: {strong_wins} 现在弱:{weak_wins}")
         elif winner == PLAYER_BLACK and not strong_is_white:
             strong_wins += 1
+            print(f"强加一 现在强: {strong_wins} 现在弱:{weak_wins}")
         elif winner == 0:
             draws += 1
+            print(f"平加一 现在强: {strong_wins} 现在弱:{weak_wins}")
         else:
             weak_wins += 1
-        print(f"赢家是{winner}")
+            print(f"弱加一 现在强: {strong_wins} 现在弱:{weak_wins}")
+        wStr = "黑棋" if winner == 1 else "白棋"
+        print(f"work {work_id}  赢家是{wStr}")
         boards, policies, values, weights = strong_agent.get_train_data()
         for b, p, v, w in zip(boards, policies, values, weights):
             try:
