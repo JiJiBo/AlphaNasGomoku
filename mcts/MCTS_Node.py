@@ -9,6 +9,7 @@ from board.GomokuBoard import GomokuBoard, GomokuAction
 @dataclass
 class Edge:
     child: Optional['MCTS_Node']
+    # 特殊处理 prior 等于 child 的 prior
     prior: float
 
 
