@@ -349,7 +349,7 @@ def train():
 
         # 计算最近胜率
         if len(recent_results) >= window_size:
-            recent_strong_wins = sum(1 for r in recent_results if r == 1)
+            recent_strong_wins = recent_results.count(1)
             recent_win_rate = recent_strong_wins / len(recent_results)
 
             # 如果胜率达到阈值，更新弱模型
@@ -360,7 +360,7 @@ def train():
                 recent_results = []  # 重置胜率统计
             else:
                 print(f"强模型最近{window_size}局胜率{recent_win_rate:.2%}")
-        total_strong_wins = sum(1 for i in recent_results if i == 1)
+        total_strong_wins = recent_results.count(1)
 
         writer.add_scalar('strong_wins', total_strong_wins / len(recent_results), epoch)
         # 划分训练集和验证集
