@@ -15,7 +15,7 @@ from net.GomokuNet import PolicyValueNet
 
 
 class MCTS_Agent:
-    def __init__(self, model: PolicyValueNet, device=None, use_rand=0.01, c_puct=1.4,tau=0.9):
+    def __init__(self, model: PolicyValueNet, device=None, use_rand=0.03, c_puct=1.4,tau=0.9):
         self.model = model
         self.use_rand = use_rand
         self.c_puct = c_puct
