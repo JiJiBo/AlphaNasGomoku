@@ -125,7 +125,7 @@ class GomokuBoard:
         """
         if self.is_terminal():
             flag = self.get_winner().value.real
-            return flag * (1 - self.move_count * 1e-3)
+            return flag
         else:
             return 0
 

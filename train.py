@@ -152,8 +152,13 @@ def gen_a_episode_data(work_id, epoch, strong_model_state_dict, weak_model_state
         strong_agent = MCTS_Agent(strong_model, tau=tau, c_puct=c_puct, )
         weak_agent = MCTS_Agent(weak_model, tau=tau, c_puct=c_puct, )
         # 随机决定哪个模型用白棋
-        black_agent, white_agent = strong_agent, weak_agent
-        strong_is_white = False
+        # 随机决定哪个模型用白棋
+        if random.random() < 0.5:
+            black_agent, white_agent = strong_agent, weak_agent
+            strong_is_white = False
+        else:
+            black_agent, white_agent = weak_agent, strong_agent
+            strong_is_white = True
 
         player = PLAYER_BLACK
         # print(f"{work_id} 第一个打手 ", "黑棋" if player == 1 else "白棋", "强势者 是 ", "白棋" if  strong_is_white else "黑棋")
