@@ -156,6 +156,6 @@ class GomokuBoard:
     def get_planes_3ch(self):
         b = self.board
         me = (b == 1).astype(np.float32)
-        opp = (b == --1).astype(np.float32)
+        opp = (b == -1).astype(np.float32)
         empty = (b == 0).astype(np.float32)
         return np.stack([me, opp, empty], axis=0).astype(np.float32)
