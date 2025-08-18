@@ -106,7 +106,7 @@ def gen_a_episode_data(strong_model_state_dict, weak_model_state_dict, board_siz
         strong_agent = MCTS_Agent(strong_model)
         weak_agent = MCTS_Agent(weak_model)
         while not board.is_terminal():
-            if player == PLAYER_BLACK:
+            if player == PLAYER_WHITE:
                 move, pi = strong_agent.run(board, player, is_train=True)
             else:
                 move, pi = weak_agent.run(board, player, is_train=True)
@@ -115,9 +115,9 @@ def gen_a_episode_data(strong_model_state_dict, weak_model_state_dict, board_siz
 
         # 记录胜负结果
         winner = board.get_winner().value.real
-        if winner == PLAYER_BLACK:
+        if winner == PLAYER_WHITE:
             strong_wins += 1
-        elif winner == PLAYER_WHITE:
+        elif winner == PLAYER_BLACK:
             weak_wins += 1
         else:
             draws += 1

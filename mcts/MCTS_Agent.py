@@ -112,7 +112,7 @@ class MCTS_Agent:
     def get_train_data(self):
         boards, policies, values, weights = [], [], [], []
         train_buff = 0.8
-        train_simulation = 30
+        train_simulation = 100
         for node in self.visit_nodes:
             # 获取 所有 孩子的 访问总数
             total_visits = sum([(edg.child.visits if edg.child is not None else 0) for edg in node.children.values()])
