@@ -114,11 +114,16 @@ class MCTS_Agent:
         train_buff = 0.8
         train_simulation = 30
         for node in self.visit_nodes:
+            # 获取 所有 孩子的 访问总数
             total_visits = sum([(edg.child.visits if edg.child is not None else 0) for edg in node.children.values()])
+            # 得到 这个 节点的 动作 策略 :: 已经 归一化 了
             pi = node.get_train()
+            # 得到 棋盘 数据
             boards.append(node.board.copy().get_planes_3ch())
             policies.append(pi)
-            values.append(node.board.get_score())
+            # 得到 当前节点 的 价值
+            values.append(node.wins_value)
+            # 得到 每条 训练数据 的 重要性 系数
             weights.append(total_visits / train_simulation * train_buff)
         return self.augment_data(boards, policies, values, weights)
 
