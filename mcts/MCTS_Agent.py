@@ -53,7 +53,7 @@ class MCTS_Agent:
         best_child = None
         best_move = None
         best_edg = None
-
+        # 获取 最优信息
         for action, edg in node.children.items():
             if not action.is_available(node.board):
                 continue
@@ -67,11 +67,17 @@ class MCTS_Agent:
                 best_child = child
                 best_move = action
                 best_edg = edg
-
+        # 如果best child 是 空的，就给他赋值
         if best_child is None and best_move is not None:
+            # 把 父节点 拷贝 一份
             new_board = node.board.copy()
+            # 走下 关键的 最优一步
             new_board.step(best_move)
+            # 给 节点 赋值
+            # flag 要 取反
+            # 最关键 的 是 prior=best_edg.prior 因为 这 涉及到 一个 约定，可见 注释
             best_child = MCTS_Node(new_board, -best_move.flag, parent=node, prior=best_edg.prior)
+            # 给其 赋值
             node.children[best_move] = Edge(best_child, best_edg.prior)
         return best_child
 
