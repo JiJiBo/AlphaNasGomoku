@@ -25,7 +25,7 @@ class MCTS_Node:
 
     def update(self, value: float):
         self.visits += 1
-        self.wins_value += value
+        self.wins_value = value
 
     def best_action(self, tau: float = 0.0, legal_actions: Optional[List[int]] = None,
                     alpha: float = 0.1, rng: Optional[np.random.Generator] = None) -> Tuple[GomokuAction, np.ndarray]:
@@ -38,7 +38,8 @@ class MCTS_Node:
         if not actions:
             raise ValueError("没有合法动作可选择")
 
-        visits = np.array([self.children[a].child.visits if self.children[a].child else 0 for a in actions], dtype=np.float64)
+        visits = np.array([self.children[a].child.visits if self.children[a].child else 0 for a in actions],
+                          dtype=np.float64)
         priors = np.array([self.children[a].prior for a in actions], dtype=np.float64)
 
         if tau <= 1e-6:

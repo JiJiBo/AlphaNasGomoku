@@ -85,7 +85,7 @@ class MCTS_Agent:
 
         for (x, y), p in zip(moves, priors):
             node.children[GomokuAction(x, y, node.player)] = Edge(None, float(p))
-
+        node.wins_value = float(value)
         return float(value)
 
     def get_result_action(self, node: MCTS_Node, is_train=False) -> tuple[GomokuAction, np.ndarray]:

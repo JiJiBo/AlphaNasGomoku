@@ -102,6 +102,7 @@ def gen_a_episode_data(strong_model_state_dict, weak_model_state_dict, board_siz
         board = GomokuBoard(board_size)
         first_player = random.choice([PLAYER_BLACK, PLAYER_WHITE])
         player = first_player
+        print("第一个打手 ", "黑棋" if player == 1 else "白棋")
         strong_agent = MCTS_Agent(strong_model)
         weak_agent = MCTS_Agent(weak_model)
         while not board.is_terminal():
