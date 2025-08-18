@@ -20,7 +20,7 @@ from net.GomokuNet import PolicyValueNet
 mp.set_start_method('spawn', force=True)
 
 
-def generate_selfplay_data(epoch, strong_model, weak_model, num_games, board_size, max_games_per_worker=4, ):
+def generate_selfplay_data(epoch, strong_model, weak_model, num_games, board_size, max_games_per_worker=5, ):
     device = torch.device('cpu')
     strong_model_state_dict = strong_model.to(device).state_dict()
     weak_model_state_dict = weak_model.to(device).state_dict()
@@ -171,6 +171,8 @@ def gen_a_episode_data(work_id, epoch, strong_model_state_dict, weak_model_state
 
         # 统计胜负
         winner = board.get_winner().value.real
+        if winner == PLAYER_WHITE:
+            print(f"白棋✌️赢了!")
         if winner == PLAYER_WHITE and strong_is_white:
             strong_wins += 1
             # print(f"强加一 现在强: {strong_wins} 现在弱:{weak_wins}")
@@ -331,7 +333,7 @@ def train():
         sum_boards, sum_policies, sum_values, sum_weights, strong_wins, weak_wins, draws = generate_selfplay_data(epoch,
                                                                                                                   strong_model,
                                                                                                                   weak_model,
-                                                                                                                  25,
+                                                                                                                  20,
                                                                                                                   board_size)
 
         # 更新最近结果
