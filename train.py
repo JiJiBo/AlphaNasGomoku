@@ -25,7 +25,7 @@ def generate_selfplay_data(epoch, strong_model, weak_model, num_games, board_siz
     strong_model_state_dict = strong_model.to(device).state_dict()
     weak_model_state_dict = weak_model.to(device).state_dict()
 
-    data_queue = mp.Queue(maxsize=4096)
+    data_queue = mp.Queue()
     stop_event = mp.Event()
 
     workers = []
@@ -287,7 +287,7 @@ def train():
     train_ratio = 0.9
     seed = 42
     win_rate_threshold = 0.55  # 胜率阈值
-    window_size = 30
+    window_size = 20
 
     torch.manual_seed(seed)
     np.random.seed(seed)
@@ -311,7 +311,7 @@ def train():
         weak_model.load_state_dict(torch.load(resume_Dir, map_location=device))
     else:
         print("未找到预训练模型，从头开始训练")
-    optimizer = torch.optim.Adam(strong_model.parameters(), lr=1e-4)
+    optimizer = torch.optim.Adam(strong_model.parameters(), lr=5e-4)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
 
     # 添加胜率跟踪
@@ -344,12 +344,14 @@ def train():
             recent_win_rate = recent_strong_wins / window_size
 
             # 如果胜率达到阈值，更新弱模型
-            if recent_win_rate >= win_rate_threshold and epoch - last_sync_epoch >= 30:
+            if recent_win_rate >= win_rate_threshold and epoch - last_sync_epoch >= 20:
                 last_sync_epoch = epoch
                 print(f"强模型最近{window_size}局胜率{recent_win_rate:.2%}达到阈值{win_rate_threshold:.0%}，更新弱模型")
                 weak_model.load_state_dict(strong_model.state_dict())
                 recent_results = []  # 重置胜率统计
-        writer.add_scalar('strong_wins', strong_wins / len(recent_results), epoch)
+        total_strong_wins = sum(1 for i in recent_results if i == 1)
+
+        writer.add_scalar('strong_wins', total_strong_wins / len(recent_results), epoch)
         # 划分训练集和验证集
         # 打乱数据
         num_samples = len(sum_boards)
@@ -388,7 +390,7 @@ def train():
             current_win_rate = sum(1 for r in recent_results if r == 1) / len(recent_results)
             writer.add_scalar('win_rate/recent', current_win_rate, epoch)
 
-        if epoch % 30 == 0:
+        if epoch % 20 == 0:
             model_dir = os.path.join(checkpoints_path, "model")
             os.makedirs(model_dir, exist_ok=True)
             torch.save(strong_model.state_dict(), os.path.join(model_dir, f"strong_model_{epoch}.pth"))
