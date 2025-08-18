@@ -136,6 +136,7 @@ def gen_a_episode_data(strong_model_state_dict, weak_model_state_dict, board_siz
     except mp.queues.Full:
         pass
 
+
 def train_model(model, train_loader, val_loader, writer, scheduler, optimizer):
     """训练模型"""
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -223,7 +224,6 @@ def train_model(model, train_loader, val_loader, writer, scheduler, optimizer):
     return train_losses, val_losses
 
 
-
 def train():
     board_size = 19
     batch_size = 256
@@ -231,7 +231,7 @@ def train():
     train_ratio = 0.9
     seed = 42
     win_rate_threshold = 0.55  # 胜率阈值
-    window_size = 10  # 统计最近10局的胜率
+    window_size = 30
 
     torch.manual_seed(seed)
     np.random.seed(seed)
