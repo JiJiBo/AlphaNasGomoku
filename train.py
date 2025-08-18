@@ -20,7 +20,7 @@ from net.GomokuNet import PolicyValueNet
 mp.set_start_method('spawn', force=True)
 
 
-def generate_selfplay_data(strong_model, weak_model, num_games, board_size, max_games_per_worker=2):
+def generate_selfplay_data(epoch, strong_model, weak_model, num_games, board_size, max_games_per_worker=2, ):
     device = torch.device('cpu')
     strong_model_state_dict = strong_model.to(device).state_dict()
     weak_model_state_dict = weak_model.to(device).state_dict()
@@ -31,7 +31,7 @@ def generate_selfplay_data(strong_model, weak_model, num_games, board_size, max_
     workers = []
     for i in range(num_games):
         p = mp.Process(target=gen_a_episode_data,
-                       args=(strong_model_state_dict, weak_model_state_dict, board_size, data_queue, stop_event,
+                       args=(epoch,strong_model_state_dict, weak_model_state_dict, board_size, data_queue, stop_event,
                              max_games_per_worker))
         p.start()
         workers.append(p)
@@ -78,9 +78,42 @@ def generate_selfplay_data(strong_model, weak_model, num_games, board_size, max_
 
     print(f"生成完毕，样本总数: {len(boards)}")
     return boards, policies, values, weights, total_strong_wins, total_weak_wins, total_draws
+def get_tau(epoch: int, mode: str = 'linear',
+            tau_start: float = 1.0, tau_min: float = 0.01,
+            epoch_start: int = 0, epoch_end: int = 100, decay_rate: float = 0.05) -> float:
+    """
+    根据当前 epoch 返回温度 tau
+
+    参数:
+        epoch       : 当前训练轮次
+        mode        : 'linear' 或 'exp' 指定衰减模式
+        tau_start   : 初始温度
+        tau_min     : 最低温度
+        epoch_start : 开始衰减的 epoch
+        epoch_end   : 结束 epoch（仅线性衰减用）
+        decay_rate  : 衰减速率（仅指数衰减用）
+
+    返回:
+        tau : 当前温度
+    """
+    if mode == 'linear':
+        if epoch <= epoch_start:
+            return tau_start
+        elif epoch >= epoch_end:
+            return tau_min
+        else:
+            # 线性衰减
+            return tau_start - (tau_start - tau_min) * (epoch - epoch_start) / (epoch_end - epoch_start)
+    elif mode == 'exp':
+        # 指数衰减
+        tau = tau_min + (tau_start - tau_min) * (2.71828 ** (-decay_rate * epoch))
+        return max(tau, tau_min)
+    else:
+        raise ValueError("mode must be 'linear' or 'exp'")
 
 
-def gen_a_episode_data(strong_model_state_dict, weak_model_state_dict, board_size, data_queue, stop_event, max_games):
+
+def gen_a_episode_data(epoch,strong_model_state_dict, weak_model_state_dict, board_size, data_queue, stop_event, max_games):
     device = torch.device('cpu')
     torch.set_num_threads(min(mp.cpu_count() // 4, 4))
 
@@ -95,7 +128,7 @@ def gen_a_episode_data(strong_model_state_dict, weak_model_state_dict, board_siz
     strong_wins = 0
     weak_wins = 0
     draws = 0
-
+    tau = get_tau(epoch)
     for _ in range(max_games):
         if stop_event.is_set():
             break
@@ -103,8 +136,8 @@ def gen_a_episode_data(strong_model_state_dict, weak_model_state_dict, board_siz
         first_player = random.choice([PLAYER_BLACK, PLAYER_WHITE])
         player = first_player
         # print("第一个打手 ", "黑棋" if player == 1 else "白棋")
-        strong_agent = MCTS_Agent(strong_model)
-        weak_agent = MCTS_Agent(weak_model)
+        strong_agent = MCTS_Agent(strong_model, tau=tau)
+        weak_agent = MCTS_Agent(weak_model, tau=tau)
         while not board.is_terminal():
             if player == PLAYER_WHITE:
                 move, pi = strong_agent.run(board, player, is_train=True)
@@ -265,8 +298,11 @@ def train():
     for epoch in eps:
         strong_model.train()
         weak_model.train()
-        sum_boards, sum_policies, sum_values, sum_weights, strong_wins, weak_wins, draws = generate_selfplay_data(
-            strong_model, weak_model, 22, board_size)
+        sum_boards, sum_policies, sum_values, sum_weights, strong_wins, weak_wins, draws = generate_selfplay_data(epoch,
+                                                                                                                  strong_model,
+                                                                                                                  weak_model,
+                                                                                                                  22,
+                                                                                                                  board_size)
 
         # 更新最近结果
         for _ in range(strong_wins):
