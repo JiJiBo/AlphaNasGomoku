@@ -152,12 +152,8 @@ def gen_a_episode_data(work_id, epoch, strong_model_state_dict, weak_model_state
         strong_agent = MCTS_Agent(strong_model, tau=tau, c_puct=c_puct, )
         weak_agent = MCTS_Agent(weak_model, tau=tau, c_puct=c_puct, )
         # 随机决定哪个模型用白棋
-        if random.random() < 0.5:
-            white_agent, black_agent = strong_agent, weak_agent
-            strong_is_white = True
-        else:
-            white_agent, black_agent = weak_agent, strong_agent
-            strong_is_white = False
+        black_agent, white_agent = strong_agent, weak_agent
+        strong_is_white = False
 
         player = PLAYER_BLACK
         # print(f"{work_id} 第一个打手 ", "黑棋" if player == 1 else "白棋", "强势者 是 ", "白棋" if  strong_is_white else "黑棋")
@@ -296,7 +292,7 @@ def train():
     train_ratio = 0.9
     seed = 42
     win_rate_threshold = 0.55  # 胜率阈值
-    window_size = 100 * 10
+    window_size = 20000
 
     torch.manual_seed(seed)
     np.random.seed(seed)
@@ -313,7 +309,7 @@ def train():
     weak_model = PolicyValueNet(board_size=board_size).to(device)
 
     # 加载预训练模型
-    resume_Dir = ""
+    resume_Dir = "./check_dir/run6/model/strong_model_20.pth"
     if os.path.exists(resume_Dir):
         print(f"加载预训练模型: {resume_Dir}")
         strong_model.load_state_dict(torch.load(resume_Dir, map_location=device))
@@ -354,7 +350,6 @@ def train():
             last_sync_epoch = epoch
             print(f"强模型最近{window_size}局胜率{recent_win_rate:.2%}达到阈值{win_rate_threshold:.0%}，更新弱模型")
             weak_model.load_state_dict(strong_model.state_dict())
-            recent_results = []  # 重置胜率统计
         else:
             print(f"强模型最近{window_size}局胜率{recent_win_rate:.2%}")
         total_strong_wins = recent_results.count(1)
