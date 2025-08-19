@@ -188,7 +188,13 @@ def gen_a_episode_data(work_id, epoch, strong_model_state_dict, weak_model_state
             # print(f"弱加一 现在强: {strong_wins} 现在弱:{weak_wins}")
         # wStr = "黑棋" if winner == 1 else "白棋"
         # print(f"work {work_id}  赢家是{wStr}")
-        boards, policies, values, weights = strong_agent.get_train_data()
+        boards, policies, values, weights = strong_agent.get_train_data(winner)
+        for b, p, v, w in zip(boards, policies, values, weights):
+            try:
+                data_queue.put((b, p.reshape(-1), v, w), timeout=1)
+            except mp.queues.Full:
+                continue
+        boards, policies, values, weights = weak_agent.get_train_data(winner)
         for b, p, v, w in zip(boards, policies, values, weights):
             try:
                 data_queue.put((b, p.reshape(-1), v, w), timeout=1)
@@ -321,7 +327,7 @@ def train():
         weak_model.load_state_dict(torch.load(resume_Dir, map_location=device))
     else:
         print("未找到预训练模型，从头开始训练")
-    optimizer = torch.optim.Adam(strong_model.parameters(), lr=5e-4)
+    optimizer = torch.optim.Adam(strong_model.parameters(), lr=1e-4)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
 
     # 添加胜率跟踪

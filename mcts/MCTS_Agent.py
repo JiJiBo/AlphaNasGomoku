@@ -94,7 +94,10 @@ class MCTS_Agent:
         # 对 先验概率 -> priors  进行归一化 。如果s不大于0， 先验概率 为 1/len(可用位置)   但是肯定进行了归一化
         priors = priors / s if s > 0 else np.ones(len(moves), dtype=np.float32) / max(1, len(moves))
         # 对 先验概率 进行 扰动
-        priors = [max(0.0, p + random.normalvariate(0, self.use_rand)) for p in priors]
+        epsilon = 0.25
+        alpha = 0.03
+        dir_noise = np.random.dirichlet([alpha] * len(moves))
+        priors = [(1 - epsilon) * p + epsilon * n for p, n in zip(priors, dir_noise)]
         # 再次 求出 先验概率 的 和
         ps = sum(priors)
         # 再次 归一化 得到 最终 的  priors -> 先验概率
@@ -110,11 +113,13 @@ class MCTS_Agent:
     def get_result_action(self, node: MCTS_Node, is_train=False) -> tuple[GomokuAction, np.ndarray]:
         return node.best_action(self.tau if is_train else 0, node.board.available())
 
-    def get_train_data(self):
+    def get_train_data(self, winner: int):
         boards, policies, values, weights = [], [], [], []
         train_buff = 0.8
         train_simulation = 100
         for node in self.visit_nodes:
+            # 节点 玩家 视角下 的 最终 对局 结果
+            z = winner if node.player == GomokuBoard.PLAYER_BLACK else -winner
             # 获取 所有 孩子的 访问总数
             total_visits = sum([(edg.child.visits if edg.child is not None else 0) for edg in node.children.values()])
             # 得到 这个 节点的 动作 策略 :: 已经 归一化 了
@@ -123,7 +128,7 @@ class MCTS_Agent:
             boards.append(node.board.copy().get_planes_3ch(node.player))
             policies.append(pi)
             # 得到 当前节点 的 价值
-            values.append(node.wins_value)
+            values.append(float(z))
             # 得到 每条 训练数据 的 重要性 系数
             weights.append(total_visits / train_simulation * train_buff)
         return self.augment_data(boards, policies, values, weights)
