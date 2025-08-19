@@ -81,7 +81,7 @@ def generate_selfplay_data(epoch, strong_model, weak_model, num_games, board_siz
     return boards, policies, values, weights, total_strong_wins, total_weak_wins, total_draws
 
 
-def get_c_puct(epoch, c_start=4.5, c_end=1.0, max_epoch=20):
+def get_c_puct(epoch, c_start=1.4, c_end=0.5, max_epoch=20):
     """
     前 max_epoch 个 epoch 线性从 c_start 减到 c_end
     之后保持不变
