@@ -301,7 +301,7 @@ def train():
     train_ratio = 0.9
     seed = 42
     win_rate_threshold = 0.55  # 胜率阈值
-    window_size = 20000
+    window_size = 200
 
     torch.manual_seed(seed)
     np.random.seed(seed)
