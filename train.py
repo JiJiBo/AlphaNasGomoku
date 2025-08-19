@@ -362,7 +362,7 @@ def train():
         else:
             print(f"强模型最近{window_size}局胜率{recent_win_rate:.2%}")
         total_strong_wins = recent_results.count(1)
-
+        print("recent_results 的 长度 ", len(recent_results))
         writer.add_scalar('strong_wins', total_strong_wins / len(recent_results), epoch)
         # 划分训练集和验证集
         # 打乱数据
