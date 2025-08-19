@@ -27,8 +27,11 @@ class MCTS_Agent:
         self.visit_nodes: List['MCTS_Node'] = []
         self.tau = tau
 
-    def run(self, root_board: GomokuBoard, player: int, number_samples=100, is_train=False):
-        root_node = MCTS_Node(root_board, player)
+    def run(self, root_board: GomokuBoard, player: int, number_samples=100, is_train=False,cur_root=None):
+        if cur_root is None:
+            root_node = MCTS_Node(root_board, player)
+        else:
+            root_node = cur_root
         self.visit_nodes.append(root_node)
         for _ in range(number_samples):
             node = root_node
@@ -42,7 +45,7 @@ class MCTS_Agent:
             for n in reversed(search_path):
                 n.update(value)
                 value = -value
-        return self.get_result_action(root_node, is_train=is_train)
+        return self.get_result_action(root_node, is_train=is_train),root_node
 
     def select_child(self, node: MCTS_Node):
         # 得到当前节点的访问次数

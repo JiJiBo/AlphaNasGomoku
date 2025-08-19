@@ -161,12 +161,18 @@ def gen_a_episode_data(work_id, epoch, strong_model_state_dict, weak_model_state
         #     strong_is_white = True
 
         player = PLAYER_BLACK
+        root = None
         # print(f"{work_id} 第一个打手 ", "黑棋" if player == 1 else "白棋", "强势者 是 ", "白棋" if  strong_is_white else "黑棋")
         while not board.is_terminal():
             if player == PLAYER_WHITE:
-                move, pi = white_agent.run(board, player, is_train=True)
+                info, cur_root = white_agent.run(board, player, is_train=True, cur_root=root)
+                move, pi = info
             else:
-                move, pi = black_agent.run(board, player, is_train=True)
+                info, cur_root = black_agent.run(board, player, is_train=True, cur_root=root)
+                move, pi = info
+            if cur_root.children[move] is not None:
+                edge = cur_root.children[move]
+                root = edge.child
             board.step(move)
             player = -player
 
