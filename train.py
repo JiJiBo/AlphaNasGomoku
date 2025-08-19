@@ -81,7 +81,7 @@ def generate_selfplay_data(epoch, strong_model, weak_model, num_games, board_siz
     return boards, policies, values, weights, total_strong_wins, total_weak_wins, total_draws
 
 
-def get_c_puct(epoch, c_start=4.5, c_end=1.0, max_epoch=100):
+def get_c_puct(epoch, c_start=4.5, c_end=1.0, max_epoch=20):
     """
     前 max_epoch 个 epoch 线性从 c_start 减到 c_end
     之后保持不变
@@ -94,7 +94,7 @@ def get_c_puct(epoch, c_start=4.5, c_end=1.0, max_epoch=100):
 
 def get_tau(epoch: int, mode: str = 'linear',
             tau_start: float = 1.0, tau_min: float = 0.01,
-            epoch_start: int = 0, epoch_end: int = 100, decay_rate: float = 0.05) -> float:
+            epoch_start: int = 0, epoch_end: int = 20, decay_rate: float = 0.05) -> float:
     """
     根据当前 epoch 返回温度 tau
 
@@ -153,12 +153,12 @@ def gen_a_episode_data(work_id, epoch, strong_model_state_dict, weak_model_state
         weak_agent = MCTS_Agent(weak_model, tau=tau, c_puct=c_puct, )
         # 随机决定哪个模型用白棋
         # 随机决定哪个模型用白棋
-        if random.random() < 0.5:
-            black_agent, white_agent = strong_agent, weak_agent
-            strong_is_white = False
-        else:
-            black_agent, white_agent = weak_agent, strong_agent
-            strong_is_white = True
+        # if random.random() < 0.5:
+        black_agent, white_agent = strong_agent, weak_agent
+        strong_is_white = False
+        # else:
+        #     black_agent, white_agent = weak_agent, strong_agent
+        #     strong_is_white = True
 
         player = PLAYER_BLACK
         # print(f"{work_id} 第一个打手 ", "黑棋" if player == 1 else "白棋", "强势者 是 ", "白棋" if  strong_is_white else "黑棋")
@@ -314,7 +314,7 @@ def train():
     weak_model = PolicyValueNet(board_size=board_size).to(device)
 
     # 加载预训练模型
-    resume_Dir = "./check_dir/run6/model/strong_model_20.pth"
+    resume_Dir = "./check_dir/run6/model/strong_model_10.pth"
     if os.path.exists(resume_Dir):
         print(f"加载预训练模型: {resume_Dir}")
         strong_model.load_state_dict(torch.load(resume_Dir, map_location=device))
