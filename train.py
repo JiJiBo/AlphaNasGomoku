@@ -188,18 +188,16 @@ def gen_a_episode_data(work_id, epoch, strong_model_state_dict, weak_model_state
             # print(f"弱加一 现在强: {strong_wins} 现在弱:{weak_wins}")
         # wStr = "黑棋" if winner == 1 else "白棋"
         # print(f"work {work_id}  赢家是{wStr}")
-        boards, policies, values, weights = strong_agent.get_train_data(winner)
-        for b, p, v, w in zip(boards, policies, values, weights):
-            try:
-                data_queue.put((b, p.reshape(-1), v, w), timeout=1)
-            except mp.queues.Full:
-                continue
-        boards, policies, values, weights = weak_agent.get_train_data(winner)
-        for b, p, v, w in zip(boards, policies, values, weights):
-            try:
-                data_queue.put((b, p.reshape(-1), v, w), timeout=1)
-            except mp.queues.Full:
-                continue
+        # 在一局对局结束后
+
+        # 获取训练数据（使用最终赢家）
+        for agent in [strong_agent, weak_agent]:
+            boards, policies, values, weights = agent.get_train_data(winner)
+            for b, p, v, w in zip(boards, policies, values, weights):
+                try:
+                    data_queue.put((b, p.reshape(-1), v, w), timeout=2)
+                except mp.queues.Full:
+                    pass  # 队列满了就丢弃或可重试
 
     # 将胜负结果也放入队列
     try:
