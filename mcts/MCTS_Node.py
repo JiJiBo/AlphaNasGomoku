@@ -20,7 +20,10 @@ class MCTS_Node:
         self.player = player
         self.parent = parent
         self.children: Dict[GomokuAction, Edge] = {}
+        # 网络 输出 胜率
         self.wins_value = 0.0
+        # 累积 价值
+        self.total_value = 0.0
         self.visits = 0
         # 当前节点（不是 父节点，也 不是 子节点 ，就是 当前的 节点） 的 先验概率
         self.prior = prior
@@ -29,7 +32,7 @@ class MCTS_Node:
         # 访问 次数 加 1
         self.visits += 1
         # 要 累积 价值
-        self.wins_value += value
+        self.total_value += value
 
     def best_action(self, tau: float = 0.0, legal_actions: Optional[List[int]] = None,
                     alpha: float = 0.1, rng: Optional[np.random.Generator] = None) -> Tuple[GomokuAction, np.ndarray]:

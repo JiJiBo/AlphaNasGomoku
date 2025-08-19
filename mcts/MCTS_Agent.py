@@ -60,7 +60,7 @@ class MCTS_Agent:
                 continue
             child, prior = edg.child, edg.prior
             vis_count = child.visits if child else 0
-            Q = child.wins_value / vis_count if vis_count > 0 else 0
+            Q = child.total_value / vis_count if vis_count > 0 else 0
             U = self.c_puct * prior * explore_buff / (vis_count + 1)
             score = Q + U
             if score > best_score:
