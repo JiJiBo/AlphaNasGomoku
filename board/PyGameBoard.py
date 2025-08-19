@@ -35,7 +35,7 @@ class MCTSAgent(Agent):
         self.simulations = simulations
 
     def select_move(self, board: GomokuBoard, player: int):
-        action, probs = self.mcts.run(board, player, self.simulations,is_train=False)
+        action, probs = self.mcts.run(board, player, self.simulations, is_train=False)
         # self.mcts.get_train_data()
         print(f"probs: {probs.max()}")
         return (action.x, action.y)
@@ -169,10 +169,11 @@ class PygameMatch:
 if __name__ == "__main__":
     # Example usage: human vs random agent
     model = PolicyValueNet(board_size=15)
-    path = r"C:\Users\12700\Downloads\strong_model_50.pth"
+    path = r"../check_dir/run6/model/strong_model_10.pth"
+    # path = r"C:\Users\12700\Downloads\strong_model_50.pth"
     if os.path.exists(path):
-        model.load_state_dict(torch.load(path,map_location="cpu"))
+        model.load_state_dict(torch.load(path, map_location="cpu"))
     modelAgent = MCTSAgent(model)
     # game = PygameMatch(modelAgent, modelAgent)
-    game = PygameMatch(modelAgent, modelAgent,board_size=15)
+    game = PygameMatch(modelAgent, modelAgent, board_size=15)
     game.play()
