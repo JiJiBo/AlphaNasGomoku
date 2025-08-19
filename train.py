@@ -197,7 +197,7 @@ def gen_a_episode_data(work_id, epoch, strong_model_state_dict, weak_model_state
         # 在一局对局结束后
 
         # 获取训练数据（使用最终赢家）
-        for agent in [strong_agent, weak_agent]:
+        for agent in [strong_agent ]:
             boards, policies, values, weights = agent.get_train_data(winner)
             for b, p, v, w in zip(boards, policies, values, weights):
                 try:
