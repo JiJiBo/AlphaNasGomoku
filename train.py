@@ -270,7 +270,7 @@ def train_model(model, train_loader, val_loader, writer, scheduler, optimizer):
 
     train_losses, val_losses = [], []
 
-    for epoch in range(5):  # 外层已经控制大循环，这里小循环即可
+    for epoch in range(1):  # 外层已经控制大循环，这里小循环即可
         model.train()
         train_value_loss, train_policy_loss = [], []
 
@@ -350,7 +350,7 @@ def train():
     train_ratio = 0.9
     seed = 42
     win_rate_threshold = 0  # 胜率阈值
-    window_size = 200
+    window_size = 30
     nc = 400
 
     torch.manual_seed(seed)
