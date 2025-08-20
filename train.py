@@ -294,14 +294,7 @@ def train_model(model, train_loader, val_loader, writer, scheduler, optimizer):
             policy_loss = -(batch_policies * log_probs).sum(dim=1)
             weighted_policy_loss = (policy_loss * batch_weights).mean()
 
-            # ---- 可选动态平衡 alpha/beta ----
-            with torch.no_grad():
-                std_v = value_loss.std().item() + 1e-6
-                std_p = policy_loss.std().item() + 1e-6
-                alpha = std_p / (std_v + std_p)
-                beta = std_v / (std_v + std_p)
-
-            loss = alpha * weighted_value_loss + beta * weighted_policy_loss
+            loss = weighted_value_loss + weighted_policy_loss
 
             loss.backward()
             optimizer.step()
@@ -346,7 +339,7 @@ def train_model(model, train_loader, val_loader, writer, scheduler, optimizer):
 def train():
     board_size = 6
     batch_size = 8
-    epochs = 20000
+    epochs = 1000
     train_ratio = 0.9
     seed = 42
     win_rate_threshold = 0  # 胜率阈值
