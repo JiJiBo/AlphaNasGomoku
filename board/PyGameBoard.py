@@ -12,6 +12,43 @@ from mcts.MCTS_Agent import MCTS_Agent
 from net.GomokuNet import PolicyValueNet
 
 
+def get_chinese_font(size: int):
+    """获取支持中文的字体"""
+    # 尝试使用系统中可用的中文字体
+    chinese_fonts = [
+        "SimHei",      # Windows 黑体
+        "Microsoft YaHei",  # Windows 微软雅黑
+        "PingFang SC",      # macOS 苹方
+        "Hiragino Sans GB", # macOS 冬青黑体
+        "WenQuanYi Micro Hei",  # Linux 文泉驿微米黑
+        "Noto Sans CJK SC",     # Google Noto 字体
+        "Source Han Sans CN",    # Adobe 思源黑体
+        "DejaVu Sans"            # 备用字体
+    ]
+    
+    # 尝试加载中文字体
+    for font_name in chinese_fonts:
+        try:
+            font = pygame.font.SysFont(font_name, size)
+            # 测试字体是否能正确渲染中文字符
+            test_surface = font.render("测试", True, (0, 0, 0))
+            if test_surface.get_width() > 0:
+                print(f"使用字体: {font_name}")
+                return font
+        except:
+            continue
+    
+    # 如果所有中文字体都不可用，尝试使用系统默认字体
+    try:
+        font = pygame.font.SysFont(None, size)
+        print("使用系统默认字体")
+        return font
+    except:
+        # 最后的备用方案：使用pygame默认字体
+        print("使用pygame默认字体")
+        return pygame.font.Font(None, size)
+
+
 class Agent:
     """Base agent interface."""
 
@@ -180,13 +217,13 @@ class PygameMatch:
                 return (255, intensity, intensity)
 
     def show_winner(self, winner: int):
-        font = pygame.font.SysFont(None, 48)
+        font = get_chinese_font(48)
         if winner == 1:
-            text = "Black wins"
+            text = "黑方胜利"
         elif winner == -1:
-            text = "White wins"
+            text = "白方胜利"
         else:
-            text = "Draw"
+            text = "平局"
         img = font.render(text, True, (255, 0, 0))
         rect = img.get_rect(center=(self.screen.get_width() // 2, self.margin // 2))
         self.screen.blit(img, rect)
@@ -267,8 +304,8 @@ class PygameMatch:
 
         # 绘制神经网络分析状态指示
         if self.show_nn_analysis:
-            font = pygame.font.SysFont(None, 24)
-            text = font.render("NN Analysis: ON", True, (255, 0, 0))
+            font = get_chinese_font(24)
+            text = font.render("神经网络分析: 开启", True, (255, 0, 0))
             self.screen.blit(text, (10, 10))
             
             # 显示胜率信息
@@ -337,7 +374,7 @@ class PygameMatch:
         help_surface = pygame.Surface((400, 300))
         help_surface.fill((240, 240, 240))
 
-        font = pygame.font.SysFont(None, 24)
+        font = get_chinese_font(24)
         y_offset = 20
         for line in help_text:
             if line.strip():
