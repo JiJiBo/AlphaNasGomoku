@@ -156,19 +156,14 @@ class PygameMatch:
     def get_nn_color(self, value, min_val, max_val, is_policy=True):
         """根据神经网络输出值获取颜色"""
         if is_policy:
-            # 策略概率：从蓝色（低概率）到红色（高概率）
+            # 策略概率：用绿色热度图，概率越大颜色越深
             if value == 0:  # 已有棋子的位置
                 return (128, 128, 128)  # 灰色
             normalized = (value - min_val) / (max_val - min_val) if max_val != min_val else 0.5
             normalized = max(0, min(1, normalized))
-            if normalized < 0.5:
-                # 蓝色到青色
-                intensity = int(255 * (0.5 - normalized) * 2)
-                return (0, intensity, 255)
-            else:
-                # 青色到红色
-                intensity = int(255 * (normalized - 0.5) * 2)
-                return (intensity, 255, 0)
+            # 绿色热度图：从浅绿到深绿
+            green_intensity = int(50 + normalized * 205)  # 50-255的绿色值
+            return (0, green_intensity, 0)
         else:
             # 价值评估：从蓝色（负值）到红色（正值）
             if value == 0:  # 已有棋子的位置
@@ -210,34 +205,47 @@ class PygameMatch:
 
         # 如果开启神经网络分析，绘制热度图
         if self.show_nn_analysis and self.nn_prob is not None and self.nn_val is not None:
-            # 绘制策略概率热度图（半透明覆盖）
-            prob_min, prob_max = self.nn_prob.min(), self.nn_prob.max()
-            val_min, val_max = self.nn_val.min(), self.nn_val.max()
-
+            # 获取概率前10的位置和概率大于55%的位置
+            prob_data = []
             for y in range(self.board_size):
                 for x in range(self.board_size):
-                    if self.board.board[y, x] == 0:  # 只对空白位置绘制热度
-                        # 策略概率颜色
-                        prob_color = self.get_nn_color(self.nn_prob[y, x], prob_min, prob_max, True)
-                        # 价值评估颜色
-                        val_color = self.get_nn_color(self.nn_val[y, x], val_min, val_max, False)
-
-                        # 混合两种颜色
-                        mixed_color = (
-                            (prob_color[0] + val_color[0]) // 2,
-                            (prob_color[1] + val_color[1]) // 2,
-                            (prob_color[2] + val_color[2]) // 2
-                        )
-
-                        # 绘制半透明的热度方块
+                    if self.board.board[y, x] == 0:  # 只考虑空白位置
+                        prob_data.append((y, x, self.nn_prob[y, x]))
+            
+            # 按概率排序，获取前10
+            prob_data.sort(key=lambda x: x[2], reverse=True)
+            top_10_positions = set((y, x) for y, x, _ in prob_data[:10])
+            
+            # 获取概率大于55%的位置
+            high_prob_threshold = 0.55
+            high_prob_positions = set()
+            for y, x, prob in prob_data:
+                if prob > high_prob_threshold:
+                    high_prob_positions.add((y, x))
+            
+            # 合并需要显示的位置
+            show_positions = top_10_positions.union(high_prob_positions)
+            
+            # 计算概率范围用于颜色映射
+            if prob_data:
+                prob_min, prob_max = min(p[2] for p in prob_data), max(p[2] for p in prob_data)
+                
+                # 绘制绿色热度图
+                for y, x, prob in prob_data:
+                    if (y, x) in show_positions:
+                        # 用绿色热度图，概率越大颜色越深
+                        green_intensity = int(50 + (prob - prob_min) / (prob_max - prob_min) * 205) if prob_max != prob_min else 127
+                        color = (0, green_intensity, 0)
+                        
+                        # 绘制半透明的绿色热度方块
                         rect = pygame.Rect(
                             self.margin + x * self.cell_size - self.cell_size // 2,
                             self.margin + y * self.cell_size - self.cell_size // 2,
                             self.cell_size, self.cell_size
                         )
                         s = pygame.Surface((self.cell_size, self.cell_size))
-                        s.set_alpha(100)  # 半透明
-                        s.fill(mixed_color)
+                        s.set_alpha(120)  # 半透明
+                        s.fill(color)
                         self.screen.blit(s, rect)
 
         # 绘制棋子
@@ -262,6 +270,43 @@ class PygameMatch:
             font = pygame.font.SysFont(None, 24)
             text = font.render("NN Analysis: ON", True, (255, 0, 0))
             self.screen.blit(text, (10, 10))
+            
+            # 显示胜率信息
+            if self.nn_val is not None:
+                # 获取当前局面的价值评估（胜率）
+                current_value = self.nn_val.mean()  # 使用平均值作为整体胜率
+                # 将价值转换为胜率百分比 (假设价值范围是-1到1，转换为0-100%)
+                win_rate = (current_value + 1) * 50  # 转换为0-100%
+                
+                # 显示胜率
+                win_rate_text = f"胜率: {win_rate:.1f}%"
+                if current_value > 0:
+                    # 黑方优势
+                    win_rate_text += " (黑方优势)"
+                    color = (0, 0, 0)
+                elif current_value < 0:
+                    # 白方优势
+                    win_rate_text += " (白方优势)"
+                    color = (255, 255, 255)
+                else:
+                    # 均势
+                    win_rate_text += " (均势)"
+                    color = (128, 128, 128)
+                
+                # 在棋盘上方显示胜率
+                win_rate_surface = font.render(win_rate_text, True, color)
+                win_rate_rect = win_rate_surface.get_rect()
+                win_rate_rect.centerx = self.screen.get_width() // 2
+                win_rate_rect.top = 10
+                
+                # 绘制背景框
+                bg_rect = pygame.Rect(win_rate_rect.left - 10, win_rate_rect.top - 5, 
+                                    win_rate_rect.width + 20, win_rate_rect.height + 10)
+                pygame.draw.rect(self.screen, (240, 240, 240), bg_rect)
+                pygame.draw.rect(self.screen, (0, 0, 0), bg_rect, 2)
+                
+                # 显示胜率文本
+                self.screen.blit(win_rate_surface, win_rate_rect)
 
         pygame.display.flip()
 
@@ -275,9 +320,17 @@ class PygameMatch:
             "鼠标左键 - 落子",
             "",
             "神经网络分析:",
-            "蓝色 - 低概率/负价值",
-            "红色 - 高概率/正价值",
-            "灰色 - 已有棋子位置"
+            "绿色热度图显示:",
+            "  - 概率前10的位置",
+            "  - 概率大于55%的位置",
+            "  - 概率越大，绿色越深",
+            "灰色 - 已有棋子位置",
+            "",
+            "胜率显示:",
+            "  - 显示在棋盘上方中央",
+            "  - 黑方优势: 胜率>50%",
+            "  - 白方优势: 胜率<50%",
+            "  - 均势: 胜率≈50%"
         ]
 
         # 创建帮助窗口
