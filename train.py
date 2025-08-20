@@ -447,7 +447,7 @@ def train():
         writer.add_scalar('loss/train_losses', mean(train_losses), epoch)
         writer.add_scalar('loss/val_losses', mean(val_losses), epoch)
 
-        if epoch % 10 == 0:
+        if epoch % 1 == 0:
             model_dir = os.path.join(checkpoints_path, "model")
             os.makedirs(model_dir, exist_ok=True)
             torch.save(strong_model.state_dict(), os.path.join(model_dir, f"strong_model_{epoch}.pth"))
