@@ -190,7 +190,8 @@ def gen_a_episode_data(work_id, epoch, strong_model_state_dict, weak_model_state
     draws = 0
     tau = get_tau(epoch)
     c_puct = get_c_puct(epoch)
-    for _ in tqdm(range(max_games), desc=f"work: {work_id} - epoch: {epoch}"):
+    for _ in range(max_games):
+        # for _ in tqdm(range(max_games), desc=f"work: {work_id} - epoch: {epoch}"):
         if stop_event.is_set():
             break
         # board = generate_random_safe_board(board_size)
@@ -223,8 +224,8 @@ def gen_a_episode_data(work_id, epoch, strong_model_state_dict, weak_model_state
 
         # 统计胜负
         winner = board.get_winner().value.real
-        if winner == PLAYER_WHITE:
-            print(f"白棋 ✌️赢了!", "强势者 是 ", "白棋" if strong_is_white else "黑棋")
+        # if winner == PLAYER_WHITE:
+        #     print(f"白棋 ✌️赢了!", "强势者 是 ", "白棋" if strong_is_white else "黑棋")
         if winner == PLAYER_WHITE and strong_is_white:
             strong_wins += 1
             # print(f"强加一 现在强: {strong_wins} 现在弱:{weak_wins}")
