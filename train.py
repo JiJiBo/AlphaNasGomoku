@@ -66,7 +66,7 @@ def generate_random_safe_board(board_size=15, max_moves=None, max_attempts_per_m
     return board
 
 
-def generate_selfplay_data(epoch, strong_model, weak_model, num_games, board_size, max_games_per_worker=4, ):
+def generate_selfplay_data(epoch, strong_model, weak_model, num_games, board_size, max_games_per_worker=20, ):
     device = torch.device('cpu')
     strong_model_state_dict = strong_model.to(device).state_dict()
     weak_model_state_dict = weak_model.to(device).state_dict()
@@ -205,16 +205,16 @@ def gen_a_episode_data(work_id, epoch, strong_model_state_dict, weak_model_state
         # else:
         #     black_agent, white_agent = weak_agent, strong_agent
         #     strong_is_white = True
-
+        ns=30
         player = PLAYER_BLACK
         root = None
         # print(f"{work_id} 第一个打手 ", "黑棋" if player == 1 else "白棋", "强势者 是 ", "白棋" if  strong_is_white else "黑棋")
         while not board.is_terminal():
             if player == PLAYER_WHITE:
-                info, cur_root = white_agent.run(board, player, is_train=True, cur_root=root)
+                info, cur_root = white_agent.run(board, player, is_train=True, cur_root=root,number_samples=ns)
                 move, pi = info
             else:
-                info, cur_root = black_agent.run(board, player, is_train=True, cur_root=root)
+                info, cur_root = black_agent.run(board, player, is_train=True, cur_root=root,number_samples=ns)
                 move, pi = info
             if cur_root.children[move] is not None:
                 edge = cur_root.children[move]
@@ -387,7 +387,7 @@ def train():
         sum_boards, sum_policies, sum_values, sum_weights, strong_wins, weak_wins, draws = generate_selfplay_data(epoch,
                                                                                                                   strong_model,
                                                                                                                   weak_model,
-                                                                                                                  4,
+                                                                                                                  10,
                                                                                                                   board_size)
 
         # 更新最近结果
@@ -412,6 +412,7 @@ def train():
             print(f"强模型最近{window_size}局胜率{recent_win_rate:.2%}")
         total_strong_wins = recent_results.count(1)
         print("recent_results 的 长度 ", len(recent_results))
+        print("数据 的 长度 ", len(sum_boards))
         writer.add_scalar('strong_wins', total_strong_wins / len(recent_results), epoch)
         # 划分训练集和验证集
         # 打乱数据

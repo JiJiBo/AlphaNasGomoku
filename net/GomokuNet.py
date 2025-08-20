@@ -5,96 +5,67 @@ import torch.nn.functional as F
 
 
 class ResidualBlock(nn.Module):
-    def __init__(self, channels: int):
-        super().__init__()
+    def __init__(self, channels):
+        super(ResidualBlock, self).__init__()
+        self.conv1 = nn.Conv2d(channels, channels, kernel_size=3, padding=1)
         self.bn1 = nn.BatchNorm2d(channels)
-        self.conv1 = nn.Conv2d(channels, channels, 3, padding=1, bias=False)
+        self.conv2 = nn.Conv2d(channels, channels, kernel_size=3, padding=1)
         self.bn2 = nn.BatchNorm2d(channels)
-        self.conv2 = nn.Conv2d(channels, channels, 3, padding=1, bias=False)
+        self.relu = nn.ReLU()
 
     def forward(self, x):
-        out = F.relu(self.bn1(x))
-        out = self.conv1(out)
-        out = F.relu(self.bn2(out))
-        out = self.conv2(out)
-        return out + x
+        residual = x
+        out = self.relu(self.bn1(self.conv1(x)))
+        out = self.bn2(self.conv2(out))
+        out += residual
+        out = self.relu(out)
+        return out
 
 
 class PolicyValueNet(nn.Module):
-    """
-    输入: x[B, C, H, W]
-    输出: policy_logits[B, H*W], value[B, 1]
-    """
+    def __init__(self, in_channels=3, hidden_channels=32, num_blocks=5, value_dim=128, board_size=19):
+        super(PolicyValueNet, self).__init__()
+        self.board_size = board_size
+        self.conv_init = nn.Conv2d(in_channels, hidden_channels, kernel_size=3, padding=1)
+        self.bn_init = nn.BatchNorm2d(hidden_channels)
 
-    def __init__(self, in_channels=3, channels=128, num_blocks=8, board_size=19):
-        super().__init__()
-        self.H = self.W = board_size
-        # Stem
-        self.stem = nn.Conv2d(in_channels, channels, kernel_size=3, padding=1, bias=False)
-        self.stem_bn = nn.BatchNorm2d(channels)
-        # Residual trunk
-        self.blocks = nn.Sequential(*[ResidualBlock(channels) for _ in range(num_blocks)])
-        # Policy head
-        self.policy_bn = nn.BatchNorm2d(channels)
-        self.policy_conv = nn.Conv2d(channels, 2, kernel_size=1, bias=False)  # 2通道足够
-        self.policy_fc = nn.Linear(2 * self.H * self.W, self.H * self.W)
-        # Value head
-        self.value_bn = nn.BatchNorm2d(channels)
-        self.value_conv = nn.Conv2d(channels, 1, kernel_size=1, bias=False)
-        self.value_fc1 = nn.Linear(self.H * self.W, 256)
-        self.value_fc2 = nn.Linear(256, 1)
+        self.res_blocks = nn.ModuleList([
+            ResidualBlock(hidden_channels) for _ in range(num_blocks)
+        ])
 
-        # 初始化（Kaiming）
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight, nonlinearity='relu')
-            elif isinstance(m, nn.Linear):
-                nn.init.kaiming_normal_(m.weight, nonlinearity='relu')
-                nn.init.zeros_(m.bias) if m.bias is not None else None
+        self.policy_conv1 = nn.Conv2d(hidden_channels, hidden_channels // 2, kernel_size=3, padding=1)
+        self.policy_bn1 = nn.BatchNorm2d(hidden_channels // 2)
+        self.policy_conv2 = nn.Conv2d(hidden_channels // 2, 1, kernel_size=3, padding=1)
+
+        self.value_conv = nn.Conv2d(hidden_channels, 1, kernel_size=1)
+        self.value_bn = nn.BatchNorm2d(1)
+        self.value_fc1 = nn.Linear(board_size * board_size, value_dim)
+        self.value_fc2 = nn.Linear(value_dim, 1)
 
     def forward(self, x):
-        # x: [B,C,H,W]
-        out = F.relu(self.stem_bn(self.stem(x)))
-        out = self.blocks(out)
+        x = F.relu(self.bn_init(self.conv_init(x)))
 
-        # Policy head
-        p = F.relu(self.policy_bn(out))
-        p = self.policy_conv(p)  # [B,2,H,W]
-        p = p.view(p.size(0), -1)  # [B, 2*H*W]
-        policy_logits = self.policy_fc(p)  # [B, H*W]
+        for block in self.res_blocks:
+            x = block(x)
 
-        # Value head
-        v = F.relu(self.value_bn(out))
-        v = self.value_conv(v)  # [B,1,H,W]
-        v = v.view(v.size(0), -1)  # [B, H*W]
-        v = F.relu(self.value_fc1(v))  # [B,256]
-        value = torch.tanh(self.value_fc2(v))  # [B,1]
-        # policy_logits = F.softmax(policy_logits, dim=1)
+        policy = F.relu(self.policy_bn1(self.policy_conv1(x)))
+        policy = self.policy_conv2(policy)
+        policy = policy.squeeze(1)
+        policy_logits = policy.view(x.size(0), -1)
+
+        value = F.relu(self.value_bn(self.value_conv(x)))
+        value = value.view(x.size(0), -1)
+        value = F.relu(self.value_fc1(value))
+        value = torch.tanh(self.value_fc2(value))
+
         return policy_logits, value
 
-    def calc_board(self, board_4ch):
+    def calc_one_board(self, x):
+        self.eval()
         with torch.no_grad():
-            policy_logits, value = self.forward(board_4ch)
-            policy_logits = F.softmax(policy_logits, dim=1)
-            policy_logits = policy_logits.view(policy_logits.size(0), self.H, self.W)
-            value = value.view(value.size(0), 1)
-            policy = policy_logits.cpu().detach().numpy().tolist()
-            value = value.cpu().detach().numpy().tolist()
-        return policy, value
-
-    def calc_one_board(self, board_4ch):
-        if isinstance(board_4ch, np.ndarray):
-            board_4ch = torch.from_numpy(board_4ch)
-        device = next(self.parameters()).device
-        board_4ch = board_4ch.unsqueeze(0).to(device, dtype=torch.float32)
-        with torch.no_grad():
-            policy_logits, value = self.forward(board_4ch)
-            policy_logits = F.softmax(policy_logits, dim=1)
-        policy_logits = (
-            policy_logits.squeeze(0).view(self.H, self.W).detach().cpu().numpy()
-        )
-        value = float(value.squeeze().item())
-        return policy_logits, value
+            value, logits = self.forward(x)
+            probs = F.softmax(logits, dim=1).view(-1, self.board_size, self.board_size)
+            return probs, value
 
 
 if __name__ == '__main__':
