@@ -84,7 +84,7 @@ class MCTS_Node:
         policy = np.zeros((self.board.size, self.board.size), dtype=np.float64)
         # total_visits = sum(edge.child.visits if edge.child else 0 for edge in self.children.values())
         # total_prior = sum(edge.prior for edge in self.children.values())
-        # 遍历所有的孩子
+        # 遍历 所有 的 孩子
         for move, edge in self.children.items():
             # 得到 孩子的 访问次数
             visits = edge.child.visits if edge.child else 0
