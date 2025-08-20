@@ -11,13 +11,59 @@ from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 import multiprocessing as mp
 
-from board.GomokuBoard import GomokuBoard
-from board.GomukuPlayer import PLAYER_BLACK, PLAYER_WHITE
+from board.GomokuBoard import GomokuBoard, GomokuAction
+from board.GomukuPlayer import PLAYER_BLACK, PLAYER_WHITE, Winner, PLAYER_EMPTY
 from datasets.DataSets import Weighted_Dataset
 from mcts.MCTS_Agent import MCTS_Agent
 from net.GomokuNet import PolicyValueNet
 
 mp.set_start_method('spawn', force=True)
+
+
+def generate_random_safe_board(board_size=15, max_moves=None, max_attempts_per_move=10):
+    """
+    生成随机非终局棋盘（安全棋盘）
+    :param board_size: 棋盘大小
+    :param max_moves: 最大落子步数
+    :param max_attempts_per_move: 每一步最大尝试次数，避免落子导致胜利
+    :return: GomokuBoard 对象
+    """
+    board = GomokuBoard(size=board_size)
+    if max_moves is None:
+        max_moves = random.randint(20, random.randint(30, board_size * board_size // 2))
+
+    moves = 0
+    while moves < max_moves:
+        available = board.available()
+        if not available:
+            break
+
+        success = False
+        attempts = 0
+        while not success and attempts < max_attempts_per_move:
+            x, y = available[np.random.randint(len(available))]
+            flag = PLAYER_BLACK if np.random.rand() < 0.5 else PLAYER_WHITE
+            action = GomokuAction(x, y, flag)
+
+            board.step(action)
+
+            # 检查是否产生赢家
+            if board.get_winner() == Winner.EMPTY:
+                success = True
+            else:
+                # 产生赢家则撤销
+                board.board[x, y] = PLAYER_EMPTY
+                board.history.pop()
+                board.move_count -= 1
+                attempts += 1
+
+        if success:
+            moves += 1
+        else:
+            # 当前步尝试多次仍无法安全落子，停止生成
+            break
+
+    return board
 
 
 def generate_selfplay_data(epoch, strong_model, weak_model, num_games, board_size, max_games_per_worker=5, ):
@@ -147,7 +193,7 @@ def gen_a_episode_data(work_id, epoch, strong_model_state_dict, weak_model_state
     for _ in tqdm(range(max_games), desc=f"work: {work_id} - epoch: {epoch}"):
         if stop_event.is_set():
             break
-        board = GomokuBoard(board_size)
+        board = generate_random_safe_board(board_size)
 
         strong_agent = MCTS_Agent(strong_model, tau=tau, c_puct=c_puct, )
         weak_agent = MCTS_Agent(weak_model, tau=tau, c_puct=c_puct, )
@@ -197,7 +243,7 @@ def gen_a_episode_data(work_id, epoch, strong_model_state_dict, weak_model_state
         # 在一局对局结束后
 
         # 获取训练数据（使用最终赢家）
-        for agent in [strong_agent ]:
+        for agent in [strong_agent]:
             boards, policies, values, weights = agent.get_train_data(winner)
             for b, p, v, w in zip(boards, policies, values, weights):
                 try:

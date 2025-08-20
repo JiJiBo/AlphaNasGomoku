@@ -159,3 +159,4 @@ class GomokuBoard:
         opp = (b == -flag).astype(np.float32)
         empty = (b == 0).astype(np.float32)
         return np.stack([me, opp, empty], axis=0).astype(np.float32)
+
