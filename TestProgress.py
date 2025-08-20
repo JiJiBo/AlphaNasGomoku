@@ -11,9 +11,10 @@ from mcts.MCTS_Agent import MCTS_Agent
 
 mp.set_start_method('spawn', force=True)
 
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
 
 def generate_random_safe_board(board_size=15, max_moves=50):
-    """生成随机非终局棋盘"""
     board = GomokuBoard(size=board_size)
     moves = 0
     while moves < max_moves:
@@ -22,8 +23,7 @@ def generate_random_safe_board(board_size=15, max_moves=50):
             break
         x, y = available[np.random.randint(len(available))]
         flag = PLAYER_BLACK if np.random.rand() < 0.5 else PLAYER_WHITE
-        action = GomokuAction(x, y, flag)
-        board.step(action)
+        board.step(GomokuAction(x, y, flag))
         if board.get_winner() != Winner.EMPTY:
             board.board[x, y] = PLAYER_EMPTY
             board.history.pop()
@@ -35,11 +35,13 @@ def generate_random_safe_board(board_size=15, max_moves=50):
 
 def play_one_game(work_id, model_state_dict, board_size=15):
     """单局自对弈"""
-    model = PolicyValueNet(board_size= board_size)
+    model = PolicyValueNet(board_size=board_size)
     model.load_state_dict(model_state_dict)
+    model.to(device)  # 移动模型到 GPU
     model.eval()
+
     board = generate_random_safe_board(board_size)
-    agent = MCTS_Agent(model, tau=1.0, c_puct=1.4)
+    agent = MCTS_Agent(model, tau=1.0, c_puct=1.4, device=device)  # 假设 MCTS_Agent 支持 device 参数
 
     player = PLAYER_BLACK
     root = None
@@ -55,10 +57,9 @@ def play_one_game(work_id, model_state_dict, board_size=15):
 
 
 def worker(worker_id, model_state_dict, games_per_worker=5, board_size=15, result_queue=None):
-    """每个进程跑固定局数"""
     start_time = time.time()
     results = []
-    for i in range(games_per_worker):
+    for _ in range(games_per_worker):
         winner = play_one_game(worker_id, model_state_dict, board_size)
         results.append(winner)
     end_time = time.time()
@@ -67,12 +68,10 @@ def worker(worker_id, model_state_dict, games_per_worker=5, board_size=15, resul
 
 
 def run_test(num_processes=4, total_games=20, board_size=15):
-    """多进程自对弈测试"""
     games_per_worker = total_games // num_processes
     extra = total_games % num_processes
 
-    # 初始化模型（随机初始化即可）
-    model = PolicyValueNet(board_size)
+    model = PolicyValueNet(board_size=board_size)
     model_state_dict = model.state_dict()
 
     result_queue = mp.Queue()
