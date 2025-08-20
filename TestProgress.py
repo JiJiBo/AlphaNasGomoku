@@ -46,15 +46,13 @@ def play_one_game(work_id, model_state_dict, board_size=15):
 
     player = PLAYER_BLACK
     root = None
-    counter = 0
     for i in tqdm(range(10)):
-        info, cur_root = agent.run(board, player, is_train=True, cur_root=root)
+        info, cur_root = agent.run(board, player, is_train=True, cur_root=root,number_samples=100)
         move, pi = info
         if cur_root.children[move] is not None:
             root = cur_root.children[move].child
         board.step(move)
         player = -player
-        counter = counter + 1
         if board.is_terminal():
             break
     winner = board.get_winner()
@@ -73,8 +71,9 @@ def worker(worker_id, model_state_dict, games_per_worker=5, board_size=15, resul
 
 
 def run_test(num_processes=4, total_games=2, board_size=15):
-    games_per_worker = total_games // num_processes
-    extra = total_games % num_processes
+    games_per_worker = max(total_games // num_processes, 1)
+    extra = total_games - games_per_worker * num_processes
+
 
     model = PolicyValueNet(board_size=board_size)
     model_state_dict = model.state_dict()
@@ -84,7 +83,7 @@ def run_test(num_processes=4, total_games=2, board_size=15):
 
     start_time = time.time()
     for i in range(num_processes):
-        n_games = games_per_worker + (1 if i < extra else 0)
+        n_games = games_per_worker + (2 if i < extra else 0)
         p = mp.Process(target=worker, args=(i, model_state_dict, n_games, board_size, result_queue))
         p.start()
         processes.append(p)
@@ -120,6 +119,6 @@ if __name__ == "__main__":
         times.append((time_cost, n))
     times.sort(key=lambda t: t[0])
     for time_cost in times:
-        print("时间",time_cost[0],"进程数",time_cost[1])
+        print("时间", time_cost[0], "进程数", time_cost[1])
     print("最快的是", times[0])
     print("最慢的是", times[-1])
