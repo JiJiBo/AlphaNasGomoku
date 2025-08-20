@@ -270,7 +270,7 @@ def train_model(model, train_loader, val_loader, writer, scheduler, optimizer):
 
     train_losses, val_losses = [], []
 
-    for epoch in range(3):  # 外层已经控制大循环，这里小循环即可
+    for epoch in range(5):  # 外层已经控制大循环，这里小循环即可
         model.train()
         train_value_loss, train_policy_loss = [], []
 
@@ -374,8 +374,8 @@ def train():
         weak_model.load_state_dict(torch.load(resume_Dir, map_location=device))
     else:
         print("未找到预训练模型，从头开始训练")
-    optimizer = torch.optim.Adam(strong_model.parameters(), lr=1e-4)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
+    optimizer = torch.optim.Adam(strong_model.parameters(), lr=1e-2)  # 与表格初期一致
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs, eta_min=1e-4)
 
     # 添加胜率跟踪
     recent_results = []  # 存储最近的胜负结果 (1=强模型胜, -1=弱模型胜, 0=平局)
