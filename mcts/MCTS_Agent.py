@@ -27,7 +27,7 @@ class MCTS_Agent:
         self.visit_nodes: List['MCTS_Node'] = []
         self.tau = tau
 
-    def run(self, root_board: GomokuBoard, player: int, number_samples=100, is_train=False,cur_root=None):
+    def run(self, root_board: GomokuBoard, player: int, number_samples=100, is_train=False, cur_root=None):
         if cur_root is None:
             root_node = MCTS_Node(root_board, player)
         else:
@@ -45,7 +45,7 @@ class MCTS_Agent:
             for n in reversed(search_path):
                 n.update(value)
                 value = -value
-        return self.get_result_action(root_node, is_train=is_train),root_node
+        return self.get_result_action(root_node, is_train=is_train), root_node
 
     def select_child(self, node: MCTS_Node):
         # 得到当前节点的访问次数
@@ -168,3 +168,44 @@ class MCTS_Agent:
             torch.stack(augmented_values),
             torch.stack(augmented_weights)
         )
+
+    def show_nn(self, board: GomokuBoard):
+        """
+        展示热度图
+        返回策略概率和价值评估的热度图
+        """
+        board_size = board.size
+
+        # 获取当前棋盘的策略概率
+        prob, _ = self.model.calc_one_board(torch.from_numpy(board.get_planes_3ch(1)))
+
+        # 初始化价值矩阵
+        val = np.zeros((board_size, board_size), dtype=np.float32)
+
+        # 对每个位置进行评估
+        for i in range(board_size):
+            for j in range(board_size):
+                if board.board[i][j] != 0:  # 如果位置已有棋子，概率设为0
+                    prob[i][j] = 0
+                else:
+                    # 创建新棋盘，在当前位置下子
+                    new_board = board.copy()
+                    print("下子")
+                    new_board.step(
+                        GomokuAction(i, j,
+                                     board.last_move().flag if board.last_move().flag != 0 else GomokuBoard.PLAYER_BLACK))
+                    print("Over")
+                    # 翻转棋盘颜色进行评估
+                    flipped_board = new_board.copy()
+                    for x in range(board_size):
+                        for y in range(board_size):
+                            if flipped_board.board[x][y] != 0:
+                                flipped_board.board[x][y] *= -1
+
+                    # 获取翻转后棋盘的价值评估
+                    planes = flipped_board.get_planes_3ch(-board.last_move().flag)
+                    _, val[i][j] = self.model.calc_one_board(
+                        planes)
+                    val[i][j] = float(-val[i][j])  # 取负值，因为是从对手视角评估
+
+        return prob, val
