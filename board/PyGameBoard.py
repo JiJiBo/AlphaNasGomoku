@@ -374,7 +374,7 @@ class PygameMatch:
                 pygame.draw.rect(self.screen, (0, 0, 0), bg_rect, 2)
 
                 # 显示胜率文本
-                self.screen.blit(win_rate_surface, win_rate_rect)
+                # self.screen.blit(win_rate_surface, win_rate_rect)
 
         pygame.display.flip()
 
@@ -476,14 +476,15 @@ class PygameMatch:
 
 if __name__ == "__main__":
     # Example usage: human vs random agent
-    model = PolicyValueNet(board_size=6)
+    model = PolicyValueNet(board_size=3)
     path = r"/Users/nas/Downloads/GoogleDownLoad/strong_model_20.pth"
-    path2 = r"C:\Users\12700\Downloads\strong_model_20.pth"
+    # path2 = r"C:\Users\12700\Downloads\strong_model_20.pth"
+    path2 = r"..\check_dir\run1\model\strong_model_5.pth"
     if os.path.exists(path):
         model.load_state_dict(torch.load(path, map_location="cpu"))
     if os.path.exists(path2):
         model.load_state_dict(torch.load(path2, map_location="cpu"))
     modelAgent = MCTSAgent(model)
-    # game = PygameMatch(modelAgent, modelAgent)
-    game = PygameMatch(modelAgent, modelAgent, board_size=6)
+    game = PygameMatch(RandomAgent(), modelAgent, board_size=3)
+    # game = PygameMatch(RandomAgent(), RandomAgent(), board_size=3)
     game.play()

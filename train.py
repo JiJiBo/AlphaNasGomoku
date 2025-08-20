@@ -66,7 +66,7 @@ def generate_random_safe_board(board_size=6, max_moves=None, max_attempts_per_mo
     return board
 
 
-def generate_selfplay_data(epoch, strong_model, weak_model, num_games, board_size, max_games_per_worker=10, ):
+def generate_selfplay_data(epoch, strong_model, weak_model, num_games, board_size, max_games_per_worker=1, ):
     device = torch.device('cpu')
     strong_model_state_dict = strong_model.to(device).state_dict()
     weak_model_state_dict = weak_model.to(device).state_dict()
@@ -387,7 +387,7 @@ def train():
         sum_boards, sum_policies, sum_values, sum_weights, strong_wins, weak_wins, draws = generate_selfplay_data(epoch,
                                                                                                                   strong_model,
                                                                                                                   weak_model,
-                                                                                                                  10,
+                                                                                                                  2,
                                                                                                                   board_size)
 
         # 更新最近结果
