@@ -169,44 +169,45 @@ class MCTS_Agent:
             torch.stack(augmented_weights)
         )
 
-    def show_nn(self, board: GomokuBoard):
+    def show_nn(self, board: GomokuBoard, simulations: int = 100):
         """
-        展示热度图
+        展示热度图（结合蒙特卡洛搜索）
         返回策略概率和价值评估的热度图
         """
         board_size = board.size
 
-        # 获取当前棋盘的策略概率
-        prob, value = self.model.calc_one_board(torch.from_numpy(board.get_planes_3ch(1)))
-        print("===")
-        print(prob.max(), prob.min())
-        print(value)
-        # 初始化价值矩阵
-        val = np.zeros((board_size, board_size), dtype=np.float32)
+        # 初始化策略概率和价值矩阵
+        prob_matrix = np.zeros((board_size, board_size), dtype=np.float32)
+        val_matrix = np.zeros((board_size, board_size), dtype=np.float32)
 
-        # 对每个位置进行评估
+        # 使用MCTS搜索
+        try:
+            # 调用MCTS的run方法
+            info, root = self.mcts.run(board.copy(), board.last_move().flag if board.last_move() else 1,
+                                       simulations, is_train=False)
+            action, action_probs = info  # action_probs 是经过MCTS搜索后的策略概率
+            print(f"MCTS策略概率范围: {action_probs.min():.4f} ~ {action_probs.max():.4f}")
+        except Exception as e:
+            print(f"MCTS搜索失败，回退到神经网络直接估值: {e}")
+            # 如果MCTS失败，就使用神经网络直接预测
+            action_probs, _ = self.model.calc_one_board(torch.from_numpy(board.get_planes_3ch(1)))
+
+        # 填充策略概率矩阵
         for i in range(board_size):
             for j in range(board_size):
-                if board.board[i][j] != 0:  # 如果位置已有棋子，概率设为0
-                    prob[i][j] = 0
+                if board.board[i][j] != 0:
+                    prob_matrix[i][j] = 0
                 else:
-                    # 创建新棋盘，在当前位置下子
+                    prob_matrix[i][j] = action_probs[i, j]
+
+        # 使用单步神经网络估值作为MCTS价值（可以改进为MCTS的叶子节点价值平均）
+        for i in range(board_size):
+            for j in range(board_size):
+                if board.board[i][j] == 0:
                     new_board = board.copy()
-                    new_board.step(
-                        GomokuAction(i, j,
-                                     board.last_move().flag if board.last_move().flag != 0 else GomokuBoard.PLAYER_BLACK))
+                    new_board.step(GomokuAction(i, j, board.last_move().flag if board.last_move().flag != 0 else 1))
+                    planes = new_board.get_planes_3ch(1)
+                    _, val_matrix[i][j] = self.model.calc_one_board(planes)
 
-                    # 翻转棋盘颜色进行评估
-                    flipped_board = new_board.copy()
-                    for x in range(board_size):
-                        for y in range(board_size):
-                            if flipped_board.board[x][y] != 0:
-                                flipped_board.board[x][y] *= -1
+        return prob_matrix, val_matrix
 
-                    # 获取翻转后棋盘的价值评估
-                    planes = flipped_board.get_planes_3ch(-board.last_move().flag)
-                    _, val[i][j] = self.model.calc_one_board(
-                        planes)
-                    val[i][j] = float(-val[i][j])  # 取负值，因为是从对手视角评估
-
-        return prob, val
