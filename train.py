@@ -375,7 +375,7 @@ def train():
         weak_model.load_state_dict(torch.load(resume_Dir, map_location=device))
     else:
         print("未找到预训练模型，从头开始训练")
-    optimizer = torch.optim.Adam(strong_model.parameters(), lr=1e-2)  # 与表格初期一致
+    optimizer = torch.optim.Adam(strong_model.parameters(), lr=2e-3)  # 与表格初期一致
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs, eta_min=1e-4)
 
     # 添加胜率跟踪
