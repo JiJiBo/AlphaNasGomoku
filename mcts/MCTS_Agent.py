@@ -27,7 +27,7 @@ class MCTS_Agent:
         self.visit_nodes: List['MCTS_Node'] = []
         self.tau = tau
 
-    def run(self, root_board: GomokuBoard, player: int, number_samples=500, is_train=False, cur_root=None):
+    def run(self, root_board: GomokuBoard, player: int, number_samples=800, is_train=False, cur_root=None):
         if cur_root is None:
             root_node = MCTS_Node(root_board, player)
         else:
