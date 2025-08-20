@@ -30,7 +30,7 @@ def generate_random_safe_board(board_size=15, max_moves=None, max_attempts_per_m
     """
     board = GomokuBoard(size=board_size)
     if max_moves is None:
-        max_moves = random.randint(20, random.randint(30, board_size * board_size // 2))
+        max_moves = random.randint(50, random.randint(50, board_size * board_size // 2))
 
     moves = 0
     while moves < max_moves:
