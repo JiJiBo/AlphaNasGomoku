@@ -72,7 +72,7 @@ def worker(worker_id, model_state_dict, games_per_worker=5, board_size=15, resul
         result_queue.put((worker_id, results, end_time - start_time))
 
 
-def run_test(num_processes=4, total_games=20, board_size=15):
+def run_test(num_processes=4, total_games=2, board_size=15):
     games_per_worker = total_games // num_processes
     extra = total_games % num_processes
 
@@ -114,4 +114,4 @@ def run_test(num_processes=4, total_games=20, board_size=15):
 if __name__ == "__main__":
     for n in [1, 2, 4, 8, 12, 16, 20]:
         print(f"\n=== 使用 {n} 个进程 ===")
-        run_test(num_processes=n, total_games=20)
+        run_test(num_processes=n, total_games=2)
