@@ -177,8 +177,10 @@ class MCTS_Agent:
         board_size = board.size
 
         # 获取当前棋盘的策略概率
-        prob, _ = self.model.calc_one_board(torch.from_numpy(board.get_planes_3ch(1)))
-
+        prob, value = self.model.calc_one_board(torch.from_numpy(board.get_planes_3ch(1)))
+        print("===")
+        print(prob.max(), prob.min())
+        print(value)
         # 初始化价值矩阵
         val = np.zeros((board_size, board_size), dtype=np.float32)
 

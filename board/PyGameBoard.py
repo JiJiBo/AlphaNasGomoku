@@ -284,6 +284,36 @@ class PygameMatch:
                         s.set_alpha(120)  # 半透明
                         s.fill(color)
                         self.screen.blit(s, rect)
+                        
+                        # 在热度图上显示概率数值
+                        prob_text = f"{prob:.3f}"  # 显示3位小数
+                        prob_font = get_chinese_font(12)  # 使用小字体
+                        
+                        # 根据背景颜色选择文字颜色
+                        if green_intensity > 150:  # 深绿色背景用白色文字
+                            text_color = (255, 255, 255)
+                        else:  # 浅绿色背景用黑色文字
+                            text_color = (0, 0, 0)
+                        
+                        # 渲染概率文本
+                        prob_surface = prob_font.render(prob_text, True, text_color)
+                        prob_rect = prob_surface.get_rect()
+                        
+                        # 将概率文本居中显示在热度方块上
+                        prob_rect.center = (
+                            self.margin + x * self.cell_size,
+                            self.margin + y * self.cell_size
+                        )
+                        
+                        # 绘制文字背景（半透明黑色）以提高可读性
+                        bg_surface = pygame.Surface((prob_rect.width + 4, prob_rect.height + 2))
+                        bg_surface.fill((0, 0, 0))
+                        bg_surface.set_alpha(80)
+                        bg_rect = bg_surface.get_rect(center=prob_rect.center)
+                        self.screen.blit(bg_surface, bg_rect)
+                        
+                        # 显示概率文本
+                        self.screen.blit(prob_surface, prob_rect)
 
         # 绘制棋子
         for y in range(self.board_size):
@@ -361,6 +391,7 @@ class PygameMatch:
             "  - 概率前10的位置",
             "  - 概率大于55%的位置",
             "  - 概率越大，绿色越深",
+            "  - 每个位置显示具体概率值",
             "灰色 - 已有棋子位置",
             "",
             "胜率显示:",
@@ -431,7 +462,7 @@ class PygameMatch:
 if __name__ == "__main__":
     # Example usage: human vs random agent
     model = PolicyValueNet(board_size=15)
-    path = r"../check_dir/run6/model/strong_model_10.pth"
+    path = r"../check_dir/run6/model/strong_model_30.pth"
     # path = r"C:\Users\12700\Downloads\strong_model_50.pth"
     if os.path.exists(path):
         model.load_state_dict(torch.load(path, map_location="cpu"))
