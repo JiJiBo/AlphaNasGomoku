@@ -27,7 +27,7 @@ class MCTS_Agent:
         self.visit_nodes: List['MCTS_Node'] = []
         self.tau = tau
 
-    def run(self, root_board: GomokuBoard, player: int, number_samples=100, is_train=False, cur_root=None):
+    def run(self, root_board: GomokuBoard, player: int, number_samples=500, is_train=False, cur_root=None):
         if cur_root is None:
             root_node = MCTS_Node(root_board, player)
         else:
@@ -118,22 +118,34 @@ class MCTS_Agent:
 
     def get_train_data(self, winner: int):
         boards, policies, values, weights = [], [], [], []
-        train_buff = 0.8
-        train_simulation = 100
+
+        # 先计算所有节点的总访问次数
+        total_visits_all_nodes = 0
         for node in self.visit_nodes:
-            # 节点 玩家 视角下 的 最终 对局 结果
+            node_visits = sum([edg.child.visits if edg.child else 0 for edg in node.children.values()])
+            total_visits_all_nodes += node_visits
+        total_visits_all_nodes = max(total_visits_all_nodes, 1e-6)  # 防止除零
+
+        for node in self.visit_nodes:
+            # 节点玩家视角下的最终结果
             z = winner if node.player == GomokuBoard.PLAYER_BLACK else -winner
-            # 获取 所有 孩子的 访问总数
-            total_visits = sum([(edg.child.visits if edg.child is not None else 0) for edg in node.children.values()])
-            # 得到 这个 节点的 动作 策略 :: 已经 归一化 了
+
+            # 节点的访问次数
+            node_visits = sum([edg.child.visits if edg.child else 0 for edg in node.children.values()])
+
+            # 得到这个节点的动作策略 (已经归一化)
             pi = node.get_train()
-            # 得到 棋盘 数据
+
+            # 保存数据
             boards.append(node.board.copy().get_planes_3ch(node.player))
             policies.append(pi)
-            # 得到 当前节点 的 价值
             values.append(float(z))
-            # 得到 每条 训练数据 的 重要性 系数
-            weights.append(total_visits / train_simulation * train_buff)
+
+            # 按节点访问次数归一化
+            w = node_visits / total_visits_all_nodes
+            weights.append(w)
+
+        # 数据增强
         return self.augment_data(boards, policies, values, weights)
 
     def augment_data(self, boards, policies, values, weights):

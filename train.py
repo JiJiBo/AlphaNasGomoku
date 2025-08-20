@@ -20,7 +20,7 @@ from net.GomokuNet import PolicyValueNet
 mp.set_start_method('spawn', force=True)
 
 
-def generate_random_safe_board(board_size=15, max_moves=None, max_attempts_per_move=10):
+def generate_random_safe_board(board_size=15, max_moves=None, max_attempts_per_move=30):
     """
     生成随机非终局棋盘（安全棋盘）
     :param board_size: 棋盘大小
@@ -257,48 +257,43 @@ def gen_a_episode_data(work_id, epoch, strong_model_state_dict, weak_model_state
     except mp.queues.Full:
         pass
 
-
 def train_model(model, train_loader, val_loader, writer, scheduler, optimizer):
-    """训练模型"""
+    """
+    标准 AlphaZero 风格训练
+    """
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model.to(device)
-    value_criterion = nn.MSELoss(reduction='none')
-    val_value_criterion = nn.MSELoss()
-    train_losses = []
-    val_losses = []
 
-    print(f"开始训练，使用设备: {device}")
-    print(f"[训练开始] 开始时间: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}")
-    for epoch in range(3):  # 外层train已经控制epoch，所以这里只跑一次
+    value_criterion = nn.MSELoss(reduction='none')  # 可加权
+    val_value_criterion = nn.MSELoss()  # 验证集直接 MSE
+
+    train_losses, val_losses = [], []
+
+    for epoch in range(3):  # 外层已经控制大循环，这里小循环即可
         model.train()
         train_value_loss, train_policy_loss = [], []
 
-        for batch_boards, batch_policies, batch_values, batch_weights in tqdm(train_loader,
-                                                                              desc=f'Train epoch'):
+        for batch_boards, batch_policies, batch_values, batch_weights in tqdm(train_loader):
             batch_boards = batch_boards.to(device)
             batch_policies = batch_policies.to(device).view(batch_policies.size(0), -1)
-            # 保证 target 策略是概率分布
-            batch_policies = F.softmax(batch_policies, dim=1)
             batch_values = batch_values.to(device).unsqueeze(1)
             batch_weights = batch_weights.to(device)
 
             optimizer.zero_grad()
-            # 得到 先验概率 pred_policies 和 胜率 pred_values
-            # pred_policies 没有 soft Max
+            # 网络输出
             pred_policies, pred_values = model(batch_boards)
 
-            # value 损失
+            # ---- value loss ----
             value_loss = value_criterion(pred_values, batch_values).squeeze(1)
+            weighted_value_loss = (value_loss * batch_weights).mean()
 
-            # policy 损失（交叉熵形式）
+            # ---- policy loss ----
+            # 注意: batch_policies 已经是访问次数归一化的概率分布，不需要 softmax
             log_probs = F.log_softmax(pred_policies, dim=1)
             policy_loss = -(batch_policies * log_probs).sum(dim=1)
-
-            # 加权平均
-            weighted_value_loss = (value_loss * batch_weights).mean()
             weighted_policy_loss = (policy_loss * batch_weights).mean()
 
-            # -------- 动态平衡权重 --------
+            # ---- 可选动态平衡 alpha/beta ----
             with torch.no_grad():
                 std_v = value_loss.std().item() + 1e-6
                 std_p = policy_loss.std().item() + 1e-6
@@ -314,21 +309,22 @@ def train_model(model, train_loader, val_loader, writer, scheduler, optimizer):
             train_policy_loss.append(weighted_policy_loss.item())
 
         scheduler.step()
+
+        # ---- 验证 ----
         model.eval()
         val_value_loss, val_policy_loss = 0, 0
         with torch.no_grad():
             for boards, policies, values, weights in val_loader:
                 boards = boards.to(device)
                 policies = policies.to(device).view(policies.size(0), -1)
-                policies = F.softmax(policies, dim=1)  # 保证验证时也是概率分布
                 values = values.to(device).unsqueeze(1)
 
                 pred_policies, pred_values = model(boards)
 
-                # value loss
-                val_value_loss += val_value_criterion(pred_values, values).item()
+                # value
+                val_value_loss += val_value_criterion(pred_values, values).mean().item()
 
-                # policy loss (手动交叉熵，保持和训练一致)
+                # policy
                 log_probs = F.log_softmax(pred_policies, dim=1)
                 val_policy_loss += (-(policies * log_probs).sum(dim=1)).mean().item()
 
@@ -337,13 +333,14 @@ def train_model(model, train_loader, val_loader, writer, scheduler, optimizer):
         avg_val_value = val_value_loss / len(val_loader)
         avg_val_policy = val_policy_loss / len(val_loader)
 
-        print("Train: ", avg_train_value, avg_train_policy)
-        print("Val: ", avg_val_value, avg_val_policy)
+        print(f"Train - Value: {avg_train_value:.4f}, Policy: {avg_train_policy:.4f}")
+        print(f"Val   - Value: {avg_val_value:.4f}, Policy: {avg_val_policy:.4f}")
 
         train_losses.append(avg_train_value + avg_train_policy)
         val_losses.append(avg_val_value + avg_val_policy)
 
     return train_losses, val_losses
+
 
 
 def train():
