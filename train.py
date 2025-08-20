@@ -20,7 +20,7 @@ from net.GomokuNet import PolicyValueNet
 mp.set_start_method('spawn', force=True)
 
 
-def generate_random_safe_board(board_size=15, max_moves=None, max_attempts_per_move=10):
+def generate_random_safe_board(board_size=6, max_moves=None, max_attempts_per_move=3):
     """
     生成随机非终局棋盘（安全棋盘）
     :param board_size: 棋盘大小
@@ -30,7 +30,7 @@ def generate_random_safe_board(board_size=15, max_moves=None, max_attempts_per_m
     """
     board = GomokuBoard(size=board_size)
     if max_moves is None:
-        max_moves = random.randint(50, random.randint(50, board_size * board_size // 2))
+        max_moves = random.randint(2, random.randint(2, board_size * board_size // 4))
 
     moves = 0
     while moves < max_moves:
@@ -66,7 +66,7 @@ def generate_random_safe_board(board_size=15, max_moves=None, max_attempts_per_m
     return board
 
 
-def generate_selfplay_data(epoch, strong_model, weak_model, num_games, board_size, max_games_per_worker=20, ):
+def generate_selfplay_data(epoch, strong_model, weak_model, num_games, board_size, max_games_per_worker=10, ):
     device = torch.device('cpu')
     strong_model_state_dict = strong_model.to(device).state_dict()
     weak_model_state_dict = weak_model.to(device).state_dict()
@@ -205,7 +205,7 @@ def gen_a_episode_data(work_id, epoch, strong_model_state_dict, weak_model_state
         # else:
         #     black_agent, white_agent = weak_agent, strong_agent
         #     strong_is_white = True
-        ns=30
+        ns=400
         player = PLAYER_BLACK
         root = None
         # print(f"{work_id} 第一个打手 ", "黑棋" if player == 1 else "白棋", "强势者 是 ", "白棋" if  strong_is_white else "黑棋")
@@ -344,7 +344,7 @@ def train_model(model, train_loader, val_loader, writer, scheduler, optimizer):
 
 
 def train():
-    board_size = 15
+    board_size = 6
     batch_size = 256
     epochs = 200
     train_ratio = 0.9

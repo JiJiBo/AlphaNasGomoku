@@ -16,16 +16,16 @@ def get_chinese_font(size: int):
     """获取支持中文的字体"""
     # 尝试使用系统中可用的中文字体
     chinese_fonts = [
-        "SimHei",      # Windows 黑体
+        "SimHei",  # Windows 黑体
         "Microsoft YaHei",  # Windows 微软雅黑
-        "PingFang SC",      # macOS 苹方
-        "Hiragino Sans GB", # macOS 冬青黑体
+        "PingFang SC",  # macOS 苹方
+        "Hiragino Sans GB",  # macOS 冬青黑体
         "WenQuanYi Micro Hei",  # Linux 文泉驿微米黑
-        "Noto Sans CJK SC",     # Google Noto 字体
-        "Source Han Sans CN",    # Adobe 思源黑体
-        "DejaVu Sans"            # 备用字体
+        "Noto Sans CJK SC",  # Google Noto 字体
+        "Source Han Sans CN",  # Adobe 思源黑体
+        "DejaVu Sans"  # 备用字体
     ]
-    
+
     # 尝试加载中文字体
     for font_name in chinese_fonts:
         try:
@@ -37,7 +37,7 @@ def get_chinese_font(size: int):
                 return font
         except:
             continue
-    
+
     # 如果所有中文字体都不可用，尝试使用系统默认字体
     try:
         font = pygame.font.SysFont(None, size)
@@ -72,7 +72,7 @@ class MCTSAgent(Agent):
         self.simulations = simulations
 
     def select_move(self, board: GomokuBoard, player: int):
-        info, root = self.mcts.run(board, player, self.simulations, is_train=False)
+        info, root = self.mcts.run(board, player, self.simulations, is_train=True)
         action, probs = info
         # self.mcts.get_train_data()
         print(f"probs: {probs.max()}")
@@ -248,32 +248,33 @@ class PygameMatch:
                 for x in range(self.board_size):
                     if self.board.board[y, x] == 0:  # 只考虑空白位置
                         prob_data.append((y, x, self.nn_prob[y, x]))
-            
+
             # 按概率排序，获取前10
             prob_data.sort(key=lambda x: x[2], reverse=True)
             top_10_positions = set((y, x) for y, x, _ in prob_data[:10])
-            
+
             # 获取概率大于55%的位置
             high_prob_threshold = 0.55
             high_prob_positions = set()
             for y, x, prob in prob_data:
                 if prob > high_prob_threshold:
                     high_prob_positions.add((y, x))
-            
+
             # 合并需要显示的位置
             show_positions = top_10_positions.union(high_prob_positions)
-            
+
             # 计算概率范围用于颜色映射
             if prob_data:
                 prob_min, prob_max = min(p[2] for p in prob_data), max(p[2] for p in prob_data)
-                
+
                 # 绘制绿色热度图
                 for y, x, prob in prob_data:
                     if (y, x) in show_positions:
                         # 用绿色热度图，概率越大颜色越深
-                        green_intensity = int(50 + (prob - prob_min) / (prob_max - prob_min) * 205) if prob_max != prob_min else 127
+                        green_intensity = int(
+                            50 + (prob - prob_min) / (prob_max - prob_min) * 205) if prob_max != prob_min else 127
                         color = (0, green_intensity, 0)
-                        
+
                         # 绘制半透明的绿色热度方块
                         rect = pygame.Rect(
                             self.margin + x * self.cell_size - self.cell_size // 2,
@@ -284,34 +285,34 @@ class PygameMatch:
                         s.set_alpha(120)  # 半透明
                         s.fill(color)
                         self.screen.blit(s, rect)
-                        
+
                         # 在热度图上显示概率数值
                         prob_text = f"{prob:.3f}"  # 显示3位小数
                         prob_font = get_chinese_font(12)  # 使用小字体
-                        
+
                         # 根据背景颜色选择文字颜色
                         if green_intensity > 150:  # 深绿色背景用白色文字
                             text_color = (255, 255, 255)
                         else:  # 浅绿色背景用黑色文字
                             text_color = (0, 0, 0)
-                        
+
                         # 渲染概率文本
                         prob_surface = prob_font.render(prob_text, True, text_color)
                         prob_rect = prob_surface.get_rect()
-                        
+
                         # 将概率文本居中显示在热度方块上
                         prob_rect.center = (
                             self.margin + x * self.cell_size,
                             self.margin + y * self.cell_size
                         )
-                        
+
                         # 绘制文字背景（半透明黑色）以提高可读性
                         bg_surface = pygame.Surface((prob_rect.width + 4, prob_rect.height + 2))
                         bg_surface.fill((0, 0, 0))
                         bg_surface.set_alpha(80)
                         bg_rect = bg_surface.get_rect(center=prob_rect.center)
                         self.screen.blit(bg_surface, bg_rect)
-                        
+
                         # 显示概率文本
                         self.screen.blit(prob_surface, prob_rect)
 
@@ -337,14 +338,14 @@ class PygameMatch:
             font = get_chinese_font(24)
             text = font.render("神经网络分析: 开启", True, (255, 0, 0))
             self.screen.blit(text, (10, 10))
-            
+
             # 显示胜率信息
             if self.nn_val is not None:
                 # 获取当前局面的价值评估（胜率）
                 current_value = self.nn_val.mean()  # 使用平均值作为整体胜率
                 # 将价值转换为胜率百分比 (假设价值范围是-1到1，转换为0-100%)
                 win_rate = (current_value + 1) * 50  # 转换为0-100%
-                
+
                 # 显示胜率
                 win_rate_text = f"胜率: {win_rate:.1f}%"
                 if current_value > 0:
@@ -359,19 +360,19 @@ class PygameMatch:
                     # 均势
                     win_rate_text += " (均势)"
                     color = (128, 128, 128)
-                
+
                 # 在棋盘上方显示胜率
                 win_rate_surface = font.render(win_rate_text, True, color)
                 win_rate_rect = win_rate_surface.get_rect()
                 win_rate_rect.centerx = self.screen.get_width() // 2
                 win_rate_rect.top = 10
-                
+
                 # 绘制背景框
-                bg_rect = pygame.Rect(win_rate_rect.left - 10, win_rate_rect.top - 5, 
-                                    win_rate_rect.width + 20, win_rate_rect.height + 10)
+                bg_rect = pygame.Rect(win_rate_rect.left - 10, win_rate_rect.top - 5,
+                                      win_rate_rect.width + 20, win_rate_rect.height + 10)
                 pygame.draw.rect(self.screen, (240, 240, 240), bg_rect)
                 pygame.draw.rect(self.screen, (0, 0, 0), bg_rect, 2)
-                
+
                 # 显示胜率文本
                 self.screen.blit(win_rate_surface, win_rate_rect)
 
@@ -477,10 +478,12 @@ if __name__ == "__main__":
     # Example usage: human vs random agent
     model = PolicyValueNet(board_size=15)
     path = r"/Users/nas/Downloads/GoogleDownLoad/strong_model_20.pth"
-    # path = r"C:\Users\12700\Downloads\strong_model_50.pth"
+    path2 = r"C:\Users\12700\Downloads\strong_model_10.pth"
     if os.path.exists(path):
         model.load_state_dict(torch.load(path, map_location="cpu"))
+    if os.path.exists(path2):
+        model.load_state_dict(torch.load(path2, map_location="cpu"))
     modelAgent = MCTSAgent(model)
     # game = PygameMatch(modelAgent, modelAgent)
-    game = PygameMatch(None, modelAgent, board_size=15)
+    game = PygameMatch(modelAgent, modelAgent, board_size=15)
     game.play()
