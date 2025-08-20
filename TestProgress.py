@@ -3,6 +3,7 @@ import multiprocessing as mp
 import torch
 import random
 import numpy as np
+from tqdm import tqdm
 
 from board.GomokuBoard import GomokuBoard, GomokuAction
 from board.GomukuPlayer import PLAYER_BLACK, PLAYER_WHITE, PLAYER_EMPTY, Winner
@@ -46,7 +47,7 @@ def play_one_game(work_id, model_state_dict, board_size=15):
     player = PLAYER_BLACK
     root = None
     counter = 0
-    while not board.is_terminal():
+    for i in tqdm(range(10)):
         info, cur_root = agent.run(board, player, is_train=True, cur_root=root, number_samples=100)
         move, pi = info
         if cur_root.children[move] is not None:
@@ -54,7 +55,7 @@ def play_one_game(work_id, model_state_dict, board_size=15):
         board.step(move)
         player = -player
         counter = counter + 1
-        if counter > 30:
+        if board.is_terminal():
             break
     winner = board.get_winner()
     return winner.value.real
