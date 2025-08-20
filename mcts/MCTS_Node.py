@@ -69,7 +69,15 @@ class MCTS_Node:
             best_move = rng.choice(candidates)
             pi = np.zeros(len(actions), dtype=np.float64)
             pi[actions.index(best_move)] = 1.0
-            return best_move, pi
+            pi_vec = pi
+
+            # 初始化棋盘大小的矩阵
+            pi_board = np.zeros((self.board.size, self.board.size), dtype=np.float64)
+
+            # 填入对应动作的概率
+            for a, p in zip(actions, pi_vec):
+                pi_board[a.x, a.y] = p
+            return best_move, pi_board
 
         # tau > 0, 将访问次数与 prior 混合
         # 训练模式
@@ -77,7 +85,15 @@ class MCTS_Node:
         w = (visits + alpha * priors) ** (1.0 / tau)
         pi = w / w.sum()
         best_move = rng.choice(actions, p=pi)
-        return best_move, pi
+        pi_vec = pi
+
+        # 初始化棋盘大小的矩阵
+        pi_board = np.zeros((self.board.size, self.board.size), dtype=np.float64)
+
+        # 填入对应动作的概率
+        for a, p in zip(actions, pi_vec):
+            pi_board[a.x, a.y] = p
+        return best_move, pi_board
 
     def get_train(self, alpha: float = 0.1) -> np.ndarray:
         # 初始化 一个 策略 棋盘

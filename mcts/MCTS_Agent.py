@@ -183,8 +183,8 @@ class MCTS_Agent:
         # 使用MCTS搜索
         try:
             # 调用MCTS的run方法
-            info, root = self.run(board.copy(), board.last_move().flag if board.last_move() else 1,
-                                  simulations, is_train=False)
+            info, root = self.run(board.copy(), board.last_move().flag if board.last_move().flag != 0 else 1,
+                                  simulations, is_train=True)
             action, action_probs = info  # action_probs 是经过MCTS搜索后的策略概率
             print(f"MCTS策略概率范围: {action_probs.min():.4f} ~ {action_probs.max():.4f}")
         except Exception as e:
