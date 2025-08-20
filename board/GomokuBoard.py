@@ -32,7 +32,7 @@ class GomokuAction:
 
 
 class GomokuBoard:
-    def __init__(self, size=19, count_win=3, ):
+    def __init__(self, size=19, count_win=4, ):
         """
         初始化函数
         :param size: 棋盘大小
@@ -159,4 +159,3 @@ class GomokuBoard:
         opp = (b == -flag).astype(np.float32)
         empty = (b == 0).astype(np.float32)
         return np.stack([me, opp, empty], axis=0).astype(np.float32)
-

@@ -66,7 +66,7 @@ def generate_random_safe_board(board_size=6, max_moves=None, max_attempts_per_mo
     return board
 
 
-def generate_selfplay_data(epoch, strong_model, weak_model, num_games, board_size, max_games_per_worker=1, ):
+def generate_selfplay_data(epoch, strong_model, weak_model, num_games, board_size, max_games_per_worker=1, nc=400):
     device = torch.device('cpu')
     strong_model_state_dict = strong_model.to(device).state_dict()
     weak_model_state_dict = weak_model.to(device).state_dict()
@@ -79,7 +79,7 @@ def generate_selfplay_data(epoch, strong_model, weak_model, num_games, board_siz
         p = mp.Process(target=gen_a_episode_data,
                        args=(i, epoch, strong_model_state_dict, weak_model_state_dict, board_size, data_queue,
                              stop_event,
-                             max_games_per_worker))
+                             max_games_per_worker, nc))
         p.start()
         workers.append(p)
 
@@ -174,7 +174,7 @@ def get_tau(epoch: int, mode: str = 'linear',
 
 def gen_a_episode_data(work_id, epoch, strong_model_state_dict, weak_model_state_dict, board_size, data_queue,
                        stop_event,
-                       max_games):
+                       max_games, nc):
     torch.set_num_threads(min(mp.cpu_count() // 4, 4))
 
     strong_model = PolicyValueNet(board_size=board_size)
@@ -205,7 +205,6 @@ def gen_a_episode_data(work_id, epoch, strong_model_state_dict, weak_model_state
         # else:
         #     black_agent, white_agent = weak_agent, strong_agent
         #     strong_is_white = True
-        ns = 40
         player = PLAYER_BLACK
         root = None
         # print(f"{work_id} 第一个打手 ", "黑棋" if player == 1 else "白棋", "强势者 是 ", "白棋" if  strong_is_white else "黑棋")
@@ -344,13 +343,14 @@ def train_model(model, train_loader, val_loader, writer, scheduler, optimizer):
 
 
 def train():
-    board_size = 3
-    batch_size = 256
+    board_size = 6
+    batch_size = 8
     epochs = 200
     train_ratio = 0.9
     seed = 42
-    win_rate_threshold = 0.55  # 胜率阈值
+    win_rate_threshold = 0  # 胜率阈值
     window_size = 200
+    nc = 400
 
     torch.manual_seed(seed)
     np.random.seed(seed)
@@ -387,8 +387,9 @@ def train():
         sum_boards, sum_policies, sum_values, sum_weights, strong_wins, weak_wins, draws = generate_selfplay_data(epoch,
                                                                                                                   strong_model,
                                                                                                                   weak_model,
-                                                                                                                  2,
-                                                                                                                  board_size)
+                                                                                                                  1,
+                                                                                                                  board_size,
+                                                                                                                  nc=nc)
 
         # 更新最近结果
         for _ in range(strong_wins):
@@ -406,6 +407,7 @@ def train():
         # 如果胜率达到阈值，更新弱模型
         if recent_win_rate >= win_rate_threshold and epoch - last_sync_epoch >= 20:
             last_sync_epoch = epoch
+            nc += 1000
             print(f"强模型最近{window_size}局胜率{recent_win_rate:.2%}达到阈值{win_rate_threshold:.0%}，更新弱模型")
             weak_model.load_state_dict(strong_model.state_dict())
         else:
