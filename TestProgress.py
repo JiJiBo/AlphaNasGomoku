@@ -48,7 +48,7 @@ def play_one_game(work_id, model_state_dict, board_size=15):
     root = None
     counter = 0
     for i in tqdm(range(10)):
-        info, cur_root = agent.run(board, player, is_train=True, cur_root=root, number_samples=100)
+        info, cur_root = agent.run(board, player, is_train=True, cur_root=root)
         move, pi = info
         if cur_root.children[move] is not None:
             root = cur_root.children[move].child
@@ -109,9 +109,17 @@ def run_test(num_processes=4, total_games=2, board_size=15):
     draws = sum(1 for w in total_results if w == 0)
     print(f"黑棋胜: {wins_black}, 白棋胜: {wins_white}, 平局: {draws}")
     print(f"吞吐量: {len(total_results) / (end_time - start_time):.2f} 局/s")
+    return end_time - start_time
 
 
 if __name__ == "__main__":
-    for n in [1, 2, 4, 8, 12, 16, 20]:
+    times = []
+    for n in [1, 2, 4, 8, 12, 16, 20, 21, 22, 23, 24, 25]:
         print(f"\n=== 使用 {n} 个进程 ===")
-        run_test(num_processes=n, total_games=2)
+        time_cost = run_test(num_processes=n, total_games=2)
+        times.append((time_cost, n))
+    times.sort(key=lambda t: t[0])
+    for time_cost in times:
+        print("时间",time_cost[0],"进程数",time_cost[1])
+    print("最快的是", times[0])
+    print("最慢的是", times[-1])
