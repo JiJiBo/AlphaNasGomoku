@@ -61,11 +61,15 @@ class PolicyValueNet(nn.Module):
         return policy_logits, value
 
     def calc_one_board(self, x):
+        if isinstance(x, np.ndarray):
+            x = torch.from_numpy(x)
+        device = next(self.parameters()).device
+        x = x.unsqueeze(0).to(device, dtype=torch.float32)
         self.eval()
         with torch.no_grad():
-            value, logits = self.forward(x)
-            probs = F.softmax(logits, dim=1).view(-1, self.board_size, self.board_size)
-            return probs, value
+            logits, value  = self.forward(x)
+            probs = F.softmax(logits, dim=1).view(-1, self.board_size, self.board_size).squeeze(0).detach().cpu().numpy()
+            return probs, value.squeeze(0).detach().cpu().numpy()
 
 
 if __name__ == '__main__':
