@@ -84,7 +84,7 @@ class ModelAgent(MCTSAgent):
 
     def __init__(
             self,
-            board_size: int = 19,
+            board_size: int = 6,
             device: Optional[str] = None,
             simulations: int = 100,
     ):
@@ -102,7 +102,7 @@ class PygameMatch:
     """Display a real-time match between two agents or a human using pygame."""
 
     def __init__(self, agent_black: Optional[Agent], agent_white: Optional[Agent],
-                 board_size: int = 19, cell_size: int = 40, margin: int = 20,
+                 board_size: int = 6, cell_size: int = 40, margin: int = 20,
                  delay: int = 100):
         self.board = GomokuBoard(board_size)
         self.agent_black = agent_black
@@ -476,7 +476,7 @@ class PygameMatch:
 
 if __name__ == "__main__":
     # Example usage: human vs random agent
-    model = PolicyValueNet(board_size=15)
+    model = PolicyValueNet(board_size=6)
     path = r"/Users/nas/Downloads/GoogleDownLoad/strong_model_20.pth"
     path2 = r"C:\Users\12700\Downloads\strong_model_10.pth"
     if os.path.exists(path):
@@ -485,5 +485,5 @@ if __name__ == "__main__":
         model.load_state_dict(torch.load(path2, map_location="cpu"))
     modelAgent = MCTSAgent(model)
     # game = PygameMatch(modelAgent, modelAgent)
-    game = PygameMatch(modelAgent, modelAgent, board_size=15)
+    game = PygameMatch(modelAgent, modelAgent, board_size=6)
     game.play()
