@@ -47,7 +47,7 @@ def play_one_game(work_id, model_state_dict, board_size=15):
     root = None
     counter = 0
     while not board.is_terminal():
-        info, cur_root = agent.run(board, player, is_train=True, cur_root=root)
+        info, cur_root = agent.run(board, player, is_train=True, cur_root=root, number_samples=100)
         move, pi = info
         if cur_root.children[move] is not None:
             root = cur_root.children[move].child
