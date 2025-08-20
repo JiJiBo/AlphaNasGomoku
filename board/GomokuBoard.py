@@ -25,9 +25,9 @@ class GomokuAction:
             #     print(f"{ac} {board.board[ac[0]][ac[1]]} ")
             return False
         # 检测是否是该他下子
-        if self.flag == board.last_move().flag:
-            # print("不该他下子")
-            return False
+        # if self.flag == board.last_move().flag:
+        #     # print("不该他下子")
+        #     return False
         return True
 
 

@@ -33,7 +33,7 @@ def get_chinese_font(size: int):
             # 测试字体是否能正确渲染中文字符
             test_surface = font.render("测试", True, (0, 0, 0))
             if test_surface.get_width() > 0:
-                print(f"使用字体: {font_name}")
+                # print(f"使用字体: {font_name}")
                 return font
         except:
             continue
@@ -41,11 +41,11 @@ def get_chinese_font(size: int):
     # 如果所有中文字体都不可用，尝试使用系统默认字体
     try:
         font = pygame.font.SysFont(None, size)
-        print("使用系统默认字体")
+        # print("使用系统默认字体")
         return font
     except:
         # 最后的备用方案：使用pygame默认字体
-        print("使用pygame默认字体")
+        # print("使用pygame默认字体")
         return pygame.font.Font(None, size)
 
 
@@ -432,7 +432,9 @@ class PygameMatch:
     def play(self):
         current_player = 1
         while True:
+            # 每次循环前绘制棋盘
             self.draw_board()
+
             if self.board.is_terminal():
                 self.show_winner(self.board.get_winner().value.real)
                 pygame.time.wait(1000)
@@ -442,27 +444,39 @@ class PygameMatch:
                 res = self.get_human_move()
                 move = res
             else:
-                undone = False
                 for event in pygame.event.get():
                     if event.type == pygame.QUIT:
                         pygame.quit()
                         sys.exit()
-                if undone:
-                    continue
                 agent = self.agent_black if current_player == 1 else self.agent_white
-                # 设置当前AI代理用于神经网络分析
-                self.current_agent = agent
+                self.current_agent = agent  # 设置当前AI代理
                 move = agent.select_move(self.board.copy(), current_player)
                 pygame.time.wait(self.delay)
 
+            # 落子
             self.board.step(GomokuAction(move[0], move[1], current_player))
+
+            # --------- 新增：每下一步都更新神经网络分析 ----------
+            if self.current_agent and hasattr(self.current_agent, 'mcts') and self.show_nn_analysis:
+                try:
+                    self.nn_prob, self.nn_val = self.current_agent.mcts.show_nn(self.board)
+                    # 可打印提示
+                    print(f"步骤 {self.board.move_count}: 更新神经网络分析")
+                    print(f"策略概率范围: {self.nn_prob.min():.4f} ~ {self.nn_prob.max():.4f}")
+                    print(f"价值评估范围: {self.nn_val.min():.4f} ~ {self.nn_val.max():.4f}")
+                except Exception as e:
+                    print(f"神经网络分析更新失败: {e}")
+                    self.show_nn_analysis = False
+            # ----------------------------------------------
+
+            # 切换玩家
             current_player = -current_player
 
 
 if __name__ == "__main__":
     # Example usage: human vs random agent
     model = PolicyValueNet(board_size=15)
-    path = r"../check_dir/run6/model/strong_model_30.pth"
+    path = r"/Users/nas/Downloads/GoogleDownLoad/strong_model_20.pth"
     # path = r"C:\Users\12700\Downloads\strong_model_50.pth"
     if os.path.exists(path):
         model.load_state_dict(torch.load(path, map_location="cpu"))

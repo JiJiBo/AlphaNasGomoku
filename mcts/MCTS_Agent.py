@@ -192,11 +192,10 @@ class MCTS_Agent:
                 else:
                     # 创建新棋盘，在当前位置下子
                     new_board = board.copy()
-                    print("下子")
                     new_board.step(
                         GomokuAction(i, j,
                                      board.last_move().flag if board.last_move().flag != 0 else GomokuBoard.PLAYER_BLACK))
-                    print("Over")
+
                     # 翻转棋盘颜色进行评估
                     flipped_board = new_board.copy()
                     for x in range(board_size):
