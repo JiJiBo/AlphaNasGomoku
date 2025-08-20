@@ -210,10 +210,10 @@ def gen_a_episode_data(work_id, epoch, strong_model_state_dict, weak_model_state
         # print(f"{work_id} 第一个打手 ", "黑棋" if player == 1 else "白棋", "强势者 是 ", "白棋" if  strong_is_white else "黑棋")
         while not board.is_terminal():
             if player == PLAYER_WHITE:
-                info, cur_root = white_agent.run(board, player, is_train=True, cur_root=root, number_samples=ns)
+                info, cur_root = white_agent.run(board, player, is_train=True, cur_root=root, number_samples=nc)
                 move, pi = info
             else:
-                info, cur_root = black_agent.run(board, player, is_train=True, cur_root=root, number_samples=ns)
+                info, cur_root = black_agent.run(board, player, is_train=True, cur_root=root, number_samples=nc)
                 move, pi = info
             if cur_root.children[move] is not None:
                 edge = cur_root.children[move]
@@ -345,7 +345,7 @@ def train_model(model, train_loader, val_loader, writer, scheduler, optimizer):
 def train():
     board_size = 6
     batch_size = 8
-    epochs = 200
+    epochs = 20000
     train_ratio = 0.9
     seed = 42
     win_rate_threshold = 0  # 胜率阈值
