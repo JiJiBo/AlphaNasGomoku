@@ -45,6 +45,7 @@ def play_one_game(work_id, model_state_dict, board_size=15):
 
     player = PLAYER_BLACK
     root = None
+    counter = 0
     while not board.is_terminal():
         info, cur_root = agent.run(board, player, is_train=True, cur_root=root)
         move, pi = info
@@ -52,6 +53,9 @@ def play_one_game(work_id, model_state_dict, board_size=15):
             root = cur_root.children[move].child
         board.step(move)
         player = -player
+        counter = counter + 1
+        if counter > 30:
+            break
     winner = board.get_winner()
     return winner.value.real
 
