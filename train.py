@@ -20,7 +20,7 @@ from net.GomokuNet import PolicyValueNet
 mp.set_start_method('spawn', force=True)
 
 
-def generate_random_safe_board(board_size=15, max_moves=None, max_attempts_per_move=30):
+def generate_random_safe_board(board_size=15, max_moves=None, max_attempts_per_move=10):
     """
     生成随机非终局棋盘（安全棋盘）
     :param board_size: 棋盘大小
@@ -66,7 +66,7 @@ def generate_random_safe_board(board_size=15, max_moves=None, max_attempts_per_m
     return board
 
 
-def generate_selfplay_data(epoch, strong_model, weak_model, num_games, board_size, max_games_per_worker=5, ):
+def generate_selfplay_data(epoch, strong_model, weak_model, num_games, board_size, max_games_per_worker=30, ):
     device = torch.device('cpu')
     strong_model_state_dict = strong_model.to(device).state_dict()
     weak_model_state_dict = weak_model.to(device).state_dict()
@@ -257,6 +257,7 @@ def gen_a_episode_data(work_id, epoch, strong_model_state_dict, weak_model_state
     except mp.queues.Full:
         pass
 
+
 def train_model(model, train_loader, val_loader, writer, scheduler, optimizer):
     """
     标准 AlphaZero 风格训练
@@ -340,7 +341,6 @@ def train_model(model, train_loader, val_loader, writer, scheduler, optimizer):
         val_losses.append(avg_val_value + avg_val_policy)
 
     return train_losses, val_losses
-
 
 
 def train():
