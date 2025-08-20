@@ -478,7 +478,7 @@ if __name__ == "__main__":
     # Example usage: human vs random agent
     model = PolicyValueNet(board_size=6)
     path = r"/Users/nas/Downloads/GoogleDownLoad/strong_model_20.pth"
-    path2 = r"C:\Users\12700\Downloads\strong_model_10.pth"
+    path2 = r"C:\Users\12700\Downloads\strong_model_20.pth"
     if os.path.exists(path):
         model.load_state_dict(torch.load(path, map_location="cpu"))
     if os.path.exists(path2):

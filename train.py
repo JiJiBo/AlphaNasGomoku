@@ -193,8 +193,8 @@ def gen_a_episode_data(work_id, epoch, strong_model_state_dict, weak_model_state
     for _ in tqdm(range(max_games), desc=f"work: {work_id} - epoch: {epoch}"):
         if stop_event.is_set():
             break
-        board = generate_random_safe_board(board_size)
-
+        # board = generate_random_safe_board(board_size)
+        board = GomokuBoard(board_size)
         strong_agent = MCTS_Agent(strong_model, tau=tau, c_puct=c_puct, )
         weak_agent = MCTS_Agent(weak_model, tau=tau, c_puct=c_puct, )
         # 随机决定哪个模型用白棋
@@ -205,16 +205,16 @@ def gen_a_episode_data(work_id, epoch, strong_model_state_dict, weak_model_state
         # else:
         #     black_agent, white_agent = weak_agent, strong_agent
         #     strong_is_white = True
-        ns=400
+        ns = 40
         player = PLAYER_BLACK
         root = None
         # print(f"{work_id} 第一个打手 ", "黑棋" if player == 1 else "白棋", "强势者 是 ", "白棋" if  strong_is_white else "黑棋")
         while not board.is_terminal():
             if player == PLAYER_WHITE:
-                info, cur_root = white_agent.run(board, player, is_train=True, cur_root=root,number_samples=ns)
+                info, cur_root = white_agent.run(board, player, is_train=True, cur_root=root, number_samples=ns)
                 move, pi = info
             else:
-                info, cur_root = black_agent.run(board, player, is_train=True, cur_root=root,number_samples=ns)
+                info, cur_root = black_agent.run(board, player, is_train=True, cur_root=root, number_samples=ns)
                 move, pi = info
             if cur_root.children[move] is not None:
                 edge = cur_root.children[move]
@@ -344,7 +344,7 @@ def train_model(model, train_loader, val_loader, writer, scheduler, optimizer):
 
 
 def train():
-    board_size = 6
+    board_size = 3
     batch_size = 256
     epochs = 200
     train_ratio = 0.9
