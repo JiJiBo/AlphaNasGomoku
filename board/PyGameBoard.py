@@ -475,16 +475,17 @@ class PygameMatch:
 
 
 if __name__ == "__main__":
+    board_size = 6
     # Example usage: human vs random agent
-    model = PolicyValueNet(board_size=3)
+    model = PolicyValueNet(board_size=board_size)
     path = r"/Users/nas/Downloads/GoogleDownLoad/strong_model_20.pth"
     # path2 = r"C:\Users\12700\Downloads\strong_model_20.pth"
-    path2 = r"..\check_dir\run1\model\strong_model_5.pth"
+    path2 = r"..\check_dir\run1\model\strong_model_511.pth"
     if os.path.exists(path):
         model.load_state_dict(torch.load(path, map_location="cpu"))
     if os.path.exists(path2):
         model.load_state_dict(torch.load(path2, map_location="cpu"))
     modelAgent = MCTSAgent(model)
-    game = PygameMatch(RandomAgent(), modelAgent, board_size=3)
+    game = PygameMatch(RandomAgent(), modelAgent, board_size=board_size)
     # game = PygameMatch(RandomAgent(), RandomAgent(), board_size=3)
     game.play()

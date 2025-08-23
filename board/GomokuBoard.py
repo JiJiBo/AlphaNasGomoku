@@ -32,7 +32,7 @@ class GomokuAction:
 
 
 class GomokuBoard:
-    def __init__(self, size=19, count_win=4, ):
+    def __init__(self, size=6, count_win=4, ):
         """
         初始化函数
         :param size: 棋盘大小
