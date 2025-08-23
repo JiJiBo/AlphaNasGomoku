@@ -4,17 +4,17 @@ import torch
 import random
 import numpy as np
 from tqdm import tqdm
-
 from board.GomokuBoard import GomokuBoard, GomokuAction
 from board.GomukuPlayer import PLAYER_BLACK, PLAYER_WHITE, PLAYER_EMPTY, Winner
 from net.GomokuNet import PolicyValueNet
 from mcts.MCTS_Agent import MCTS_Agent
+print(torch.version.cuda)
 
 mp.set_start_method('spawn', force=True)
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-
+print(device)
 def generate_random_safe_board(board_size=15, max_moves=50):
     board = GomokuBoard(size=board_size)
     moves = 0
