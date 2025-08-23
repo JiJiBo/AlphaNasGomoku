@@ -1,3 +1,5 @@
+# 尚未完成
+
 # 参考了
 
 - https://github.com/zhoukangyang233/Gomoku
