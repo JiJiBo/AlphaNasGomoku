@@ -322,7 +322,6 @@ def train_model(model, train_loader, val_loader, writer, epochs, lr_multiplier):
     lr = 1e-4
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
-    lr = lr_multiplier * lr
     print("当前学习率是", lr)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     value_criterion = nn.MSELoss(reduction="none")  # 可加权
@@ -365,12 +364,17 @@ def train_model(model, train_loader, val_loader, writer, epochs, lr_multiplier):
                 )
             )
             count += 1
+            print("KL:", KL_LOSS)
             if KL_LOSS > KL_TARG * 4:  # 如果KL散度很差，则提前终止
+                print("KL散度很差，提前终止")
                 break
             if KL_LOSS > KL_TARG * 2 and lr_multiplier > 0.1:
                 lr_multiplier /= 1.5
             elif KL_LOSS < KL_TARG / 2 and lr_multiplier < 10:
                 lr_multiplier *= 1.5
+            for params in optimizer.param_groups:
+                # 遍历Optimizer中的每一组参数，将该组参数的学习率 * 0.9
+                params["lr"] = lr * lr_multiplier
             # ---- value loss ----
             value_loss = value_criterion(pred_values, batch_values).squeeze(1)
             weighted_value_loss = (value_loss * batch_weights).mean()
@@ -492,7 +496,6 @@ def train():
         # 如果胜率达到阈值，更新弱模型
         if recent_win_rate >= win_rate_threshold and epoch - last_sync_epoch >= 20:
             last_sync_epoch = epoch
-            nc += 1000
             print(
                 f"强模型最近{window_size}局胜率{recent_win_rate:.2%}达到阈值{win_rate_threshold:.0%}，更新弱模型"
             )
