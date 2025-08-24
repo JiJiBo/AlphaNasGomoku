@@ -1,23 +1,24 @@
+import multiprocessing as mp
 import os
 import random
 import time
-import torch.nn.functional as F
+
 import numpy as np
 import torch
+import torch.nn.functional as F
 from numpy import mean
 from torch import nn
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
-import multiprocessing as mp
 
 from board.GomokuBoard import GomokuBoard, GomokuAction
-from board.GomukuPlayer import PLAYER_BLACK, PLAYER_WHITE, Winner, PLAYER_EMPTY
+from board.GomukuPlayer import PLAYER_BLACK, PLAYER_WHITE, Winner, PLAYER_EMPTY, KL_TARG
 from datasets.DataSets import Weighted_Dataset
 from mcts.MCTS_Agent import MCTS_Agent
 from net.GomokuNet import PolicyValueNet
 
-mp.set_start_method('spawn', force=True)
+mp.set_start_method("spawn", force=True)
 
 
 def generate_random_safe_board(board_size=6, max_moves=None, max_attempts_per_move=3):
@@ -66,8 +67,16 @@ def generate_random_safe_board(board_size=6, max_moves=None, max_attempts_per_mo
     return board
 
 
-def generate_selfplay_data(epoch, strong_model, weak_model, num_games, board_size, max_games_per_worker=1, nc=400):
-    device = torch.device('cpu')
+def generate_selfplay_data(
+    epoch,
+    strong_model,
+    weak_model,
+    num_games,
+    board_size,
+    max_games_per_worker=1,
+    nc=400,
+):
+    device = torch.device("cpu")
     strong_model_state_dict = strong_model.to(device).state_dict()
     weak_model_state_dict = weak_model.to(device).state_dict()
 
@@ -76,10 +85,20 @@ def generate_selfplay_data(epoch, strong_model, weak_model, num_games, board_siz
 
     workers = []
     for i in range(num_games):
-        p = mp.Process(target=gen_a_episode_data,
-                       args=(i, epoch, strong_model_state_dict, weak_model_state_dict, board_size, data_queue,
-                             stop_event,
-                             max_games_per_worker, nc))
+        p = mp.Process(
+            target=gen_a_episode_data,
+            args=(
+                i,
+                epoch,
+                strong_model_state_dict,
+                weak_model_state_dict,
+                board_size,
+                data_queue,
+                stop_event,
+                max_games_per_worker,
+                nc,
+            ),
+        )
         p.start()
         workers.append(p)
 
@@ -91,7 +110,7 @@ def generate_selfplay_data(epoch, strong_model, weak_model, num_games, board_siz
     while any(p.is_alive() for p in workers) or not data_queue.empty():
         try:
             item = data_queue.get(timeout=5)
-            if item[0] == 'results':
+            if item[0] == "results":
                 total_strong_wins += item[1]
                 total_weak_wins += item[2]
                 total_draws += item[3]
@@ -121,10 +140,20 @@ def generate_selfplay_data(epoch, strong_model, weak_model, num_games, board_siz
         strong_win_rate = total_strong_wins / total_games
         weak_win_rate = total_weak_wins / total_games
         draw_rate = total_draws / total_games
-        print(f"对战统计 - 强模型胜率: {strong_win_rate:.2%}, 弱模型胜率: {weak_win_rate:.2%}, 平局率: {draw_rate:.2%}")
+        print(
+            f"对战统计 - 强模型胜率: {strong_win_rate:.2%}, 弱模型胜率: {weak_win_rate:.2%}, 平局率: {draw_rate:.2%}"
+        )
 
     print(f"生成完毕，样本总数: {len(boards)}")
-    return boards, policies, values, weights, total_strong_wins, total_weak_wins, total_draws
+    return (
+        boards,
+        policies,
+        values,
+        weights,
+        total_strong_wins,
+        total_weak_wins,
+        total_draws,
+    )
 
 
 def get_c_puct(epoch, c_start=1.4, c_end=0.5, max_epoch=20):
@@ -138,9 +167,15 @@ def get_c_puct(epoch, c_start=1.4, c_end=0.5, max_epoch=20):
         return c_end
 
 
-def get_tau(epoch: int, mode: str = 'linear',
-            tau_start: float = 1.0, tau_min: float = 0.01,
-            epoch_start: int = 0, epoch_end: int = 20, decay_rate: float = 0.05) -> float:
+def get_tau(
+    epoch: int,
+    mode: str = "linear",
+    tau_start: float = 1.0,
+    tau_min: float = 0.01,
+    epoch_start: int = 0,
+    epoch_end: int = 20,
+    decay_rate: float = 0.05,
+) -> float:
     """
     根据当前 epoch 返回温度 tau
 
@@ -156,15 +191,17 @@ def get_tau(epoch: int, mode: str = 'linear',
     返回:
         tau : 当前温度
     """
-    if mode == 'linear':
+    if mode == "linear":
         if epoch <= epoch_start:
             return tau_start
         elif epoch >= epoch_end:
             return tau_min
         else:
             # 线性衰减
-            return tau_start - (tau_start - tau_min) * (epoch - epoch_start) / (epoch_end - epoch_start)
-    elif mode == 'exp':
+            return tau_start - (tau_start - tau_min) * (epoch - epoch_start) / (
+                epoch_end - epoch_start
+            )
+    elif mode == "exp":
         # 指数衰减
         tau = tau_min + (tau_start - tau_min) * (2.71828 ** (-decay_rate * epoch))
         return max(tau, tau_min)
@@ -172,9 +209,17 @@ def get_tau(epoch: int, mode: str = 'linear',
         raise ValueError("mode must be 'linear' or 'exp'")
 
 
-def gen_a_episode_data(work_id, epoch, strong_model_state_dict, weak_model_state_dict, board_size, data_queue,
-                       stop_event,
-                       max_games, nc):
+def gen_a_episode_data(
+    work_id,
+    epoch,
+    strong_model_state_dict,
+    weak_model_state_dict,
+    board_size,
+    data_queue,
+    stop_event,
+    max_games,
+    nc,
+):
     torch.set_num_threads(min(mp.cpu_count() // 4, 4))
 
     strong_model = PolicyValueNet(board_size=board_size)
@@ -196,8 +241,16 @@ def gen_a_episode_data(work_id, epoch, strong_model_state_dict, weak_model_state
             break
         # board = generate_random_safe_board(board_size)
         board = GomokuBoard(board_size)
-        strong_agent = MCTS_Agent(strong_model, tau=tau, c_puct=c_puct, )
-        weak_agent = MCTS_Agent(weak_model, tau=tau, c_puct=c_puct, )
+        strong_agent = MCTS_Agent(
+            strong_model,
+            tau=tau,
+            c_puct=c_puct,
+        )
+        weak_agent = MCTS_Agent(
+            weak_model,
+            tau=tau,
+            c_puct=c_puct,
+        )
         # 随机决定哪个模型用白棋
         # 随机决定哪个模型用白棋
         # if random.random() < 0.5:
@@ -211,10 +264,14 @@ def gen_a_episode_data(work_id, epoch, strong_model_state_dict, weak_model_state
         # print(f"{work_id} 第一个打手 ", "黑棋" if player == 1 else "白棋", "强势者 是 ", "白棋" if  strong_is_white else "黑棋")
         while not board.is_terminal():
             if player == PLAYER_WHITE:
-                info, cur_root = white_agent.run(board, player, is_train=True, cur_root=root, number_samples=nc)
+                info, cur_root = white_agent.run(
+                    board, player, is_train=True, cur_root=root, number_samples=nc
+                )
                 move, pi = info
             else:
-                info, cur_root = black_agent.run(board, player, is_train=True, cur_root=root, number_samples=nc)
+                info, cur_root = black_agent.run(
+                    board, player, is_train=True, cur_root=root, number_samples=nc
+                )
                 move, pi = info
             if cur_root.children[move] is not None:
                 edge = cur_root.children[move]
@@ -253,19 +310,22 @@ def gen_a_episode_data(work_id, epoch, strong_model_state_dict, weak_model_state
 
     # 将胜负结果也放入队列
     try:
-        data_queue.put(('results', strong_wins, weak_wins, draws), timeout=1)
+        data_queue.put(("results", strong_wins, weak_wins, draws), timeout=1)
     except mp.queues.Full:
         pass
 
 
-def train_model(model, train_loader, val_loader, writer, scheduler, optimizer):
+def train_model(model, train_loader, val_loader, writer, epochs, lr_multiplier):
     """
     标准 AlphaZero 风格训练
     """
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    lr = 1e-4
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
-
-    value_criterion = nn.MSELoss(reduction='none')  # 可加权
+    lr = lr_multiplier * lr
+    print("当前学习率是", lr)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    value_criterion = nn.MSELoss(reduction="none")  # 可加权
     val_value_criterion = nn.MSELoss()  # 验证集直接 MSE
 
     train_losses, val_losses = [], []
@@ -273,8 +333,12 @@ def train_model(model, train_loader, val_loader, writer, scheduler, optimizer):
     for epoch in range(1):  # 外层已经控制大循环，这里小循环即可
         model.train()
         train_value_loss, train_policy_loss = [], []
-
-        for batch_boards, batch_policies, batch_values, batch_weights in tqdm(train_loader):
+        batch_boards, batch_policies, batch_values, batch_weights = train_loader
+        with torch.no_grad():
+            pred_policies_old, pred_values_old = model(batch_boards)
+        for batch_boards, batch_policies, batch_values, batch_weights in tqdm(
+            train_loader
+        ):
             batch_boards = batch_boards.to(device)
             batch_policies = batch_policies.to(device).view(batch_policies.size(0), -1)
             batch_values = batch_values.to(device).unsqueeze(1)
@@ -283,7 +347,23 @@ def train_model(model, train_loader, val_loader, writer, scheduler, optimizer):
             optimizer.zero_grad()
             # 网络输出
             pred_policies, pred_values = model(batch_boards)
-
+            # 计算KL散度
+            KL_LOSS = torch.mean(
+                torch.sum(
+                    pred_policies_old
+                    * (
+                        torch.log(pred_values_old + 1e-10)
+                        - torch.log(pred_values + 1e-10)
+                    ),
+                    dim=1,
+                )
+            )
+            if KL_LOSS > KL_TARG * 4:  # 如果KL散度很差，则提前终止
+                break
+            if KL_LOSS > KL_TARG * 2 and lr_multiplier > 0.1:
+                lr_multiplier /= 1.5
+            elif KL_LOSS < KL_TARG / 2 and lr_multiplier < 10:
+                lr_multiplier *= 1.5
             # ---- value loss ----
             value_loss = value_criterion(pred_values, batch_values).squeeze(1)
             weighted_value_loss = (value_loss * batch_weights).mean()
@@ -301,8 +381,6 @@ def train_model(model, train_loader, val_loader, writer, scheduler, optimizer):
 
             train_value_loss.append(weighted_value_loss.item())
             train_policy_loss.append(weighted_policy_loss.item())
-
-        scheduler.step()
 
         # ---- 验证 ----
         model.eval()
@@ -333,7 +411,7 @@ def train_model(model, train_loader, val_loader, writer, scheduler, optimizer):
         train_losses.append(avg_train_value + avg_train_policy)
         val_losses.append(avg_val_value + avg_val_policy)
 
-    return train_losses, val_losses
+    return train_losses, val_losses, lr_multiplier
 
 
 def train():
@@ -345,18 +423,18 @@ def train():
     win_rate_threshold = 0  # 胜率阈值
     window_size = 30
     nc = 400
-
+    lr_multiplier = 1
     torch.manual_seed(seed)
     np.random.seed(seed)
     random.seed(seed)
 
-    os.makedirs('./check_dir', exist_ok=True)
-    run_id = len(os.listdir('./check_dir'))
+    os.makedirs("./check_dir", exist_ok=True)
+    run_id = len(os.listdir("./check_dir"))
     checkpoints_path = f"./check_dir/run{run_id}"
     os.makedirs(checkpoints_path, exist_ok=True)
     log_dir = os.path.join(checkpoints_path, "log")
     writer = SummaryWriter(os.path.join(log_dir, time.strftime("%Y%m%d-%H%M%S")))
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     strong_model = PolicyValueNet(board_size=board_size).to(device)
     weak_model = PolicyValueNet(board_size=board_size).to(device)
 
@@ -368,8 +446,6 @@ def train():
         weak_model.load_state_dict(torch.load(resume_Dir, map_location=device))
     else:
         print("未找到预训练模型，从头开始训练")
-    optimizer = torch.optim.Adam(strong_model.parameters(), lr=2e-3)  # 与表格初期一致
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs, eta_min=1e-4)
 
     # 添加胜率跟踪
     recent_results = []  # 存储最近的胜负结果 (1=强模型胜, -1=弱模型胜, 0=平局)
@@ -378,12 +454,17 @@ def train():
     for epoch in eps:
         strong_model.train()
         weak_model.train()
-        sum_boards, sum_policies, sum_values, sum_weights, strong_wins, weak_wins, draws = generate_selfplay_data(epoch,
-                                                                                                                  strong_model,
-                                                                                                                  weak_model,
-                                                                                                                  1,
-                                                                                                                  board_size,
-                                                                                                                  nc=nc)
+        (
+            sum_boards,
+            sum_policies,
+            sum_values,
+            sum_weights,
+            strong_wins,
+            weak_wins,
+            draws,
+        ) = generate_selfplay_data(
+            epoch, strong_model, weak_model, 1, board_size, nc=nc
+        )
 
         # 更新最近结果
         for _ in range(strong_wins):
@@ -402,14 +483,16 @@ def train():
         if recent_win_rate >= win_rate_threshold and epoch - last_sync_epoch >= 20:
             last_sync_epoch = epoch
             nc += 1000
-            print(f"强模型最近{window_size}局胜率{recent_win_rate:.2%}达到阈值{win_rate_threshold:.0%}，更新弱模型")
+            print(
+                f"强模型最近{window_size}局胜率{recent_win_rate:.2%}达到阈值{win_rate_threshold:.0%}，更新弱模型"
+            )
             weak_model.load_state_dict(strong_model.state_dict())
         else:
             print(f"强模型最近{window_size}局胜率{recent_win_rate:.2%}")
         total_strong_wins = recent_results.count(1)
         print("recent_results 的 长度 ", len(recent_results))
         print("数据 的 长度 ", len(sum_boards))
-        writer.add_scalar('strong_wins', total_strong_wins / len(recent_results), epoch)
+        writer.add_scalar("strong_wins", total_strong_wins / len(recent_results), epoch)
         # 划分训练集和验证集
         # 打乱数据
         num_samples = len(sum_boards)
@@ -432,26 +515,41 @@ def train():
         val_weights = sum_weights[val_idx]
 
         # 创建数据集和数据加载器
-        train_dataset = Weighted_Dataset(train_boards, train_policies, train_values, train_weights)
-        val_dataset = Weighted_Dataset(val_boards, val_policies, val_values, val_weights)
+        train_dataset = Weighted_Dataset(
+            train_boards, train_policies, train_values, train_weights
+        )
+        val_dataset = Weighted_Dataset(
+            val_boards, val_policies, val_values, val_weights
+        )
 
         train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
         val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
         # 训练模型
-        train_losses, val_losses = train_model(strong_model, train_loader, val_loader, writer, scheduler, optimizer)
-        writer.add_scalar('loss/train_losses', mean(train_losses), epoch)
-        writer.add_scalar('loss/val_losses', mean(val_losses), epoch)
+        train_losses, val_losses, lr_multiplier = train_model(
+            strong_model, train_loader, val_loader, writer, epochs, lr_multiplier
+        )
+        writer.add_scalar("loss/train_losses", mean(train_losses), epoch)
+        writer.add_scalar("loss/val_losses", mean(val_losses), epoch)
 
         if epoch % 1 == 0:
             model_dir = os.path.join(checkpoints_path, "model")
             os.makedirs(model_dir, exist_ok=True)
-            torch.save(strong_model.state_dict(), os.path.join(model_dir, f"strong_model_{epoch}.pth"))
+            torch.save(
+                strong_model.state_dict(),
+                os.path.join(model_dir, f"strong_model_{epoch}.pth"),
+            )
 
-    torch.save(strong_model.state_dict(), os.path.join(checkpoints_path, "strong_model.pth"))
+    torch.save(
+        strong_model.state_dict(), os.path.join(checkpoints_path, "strong_model.pth")
+    )
 
 
-if __name__ == '__main__':
-    print(f"[训练开始] 开始时间: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}")
+if __name__ == "__main__":
+    print(
+        f"[训练开始] 开始时间: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}"
+    )
     train()
-    print(f"[训练结束] 结束时间: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}")
+    print(
+        f"[训练结束] 结束时间: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}"
+    )
