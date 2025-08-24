@@ -1,47 +1,109 @@
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np
+
+
+# 搭建残差块
+# 参考 https://github.com/tensorfly-gpu/aichess.git
+class ResBlock(nn.Module):
+
+    def __init__(self, num_filters=256):
+        super().__init__()
+        self.conv1 = nn.Conv2d(
+            in_channels=num_filters,
+            out_channels=num_filters,
+            kernel_size=(3, 3),
+            stride=(1, 1),
+            padding=1,
+        )
+        self.conv1_bn = nn.BatchNorm2d(
+            num_filters,
+        )
+        self.conv1_act = nn.ReLU()
+        self.conv2 = nn.Conv2d(
+            in_channels=num_filters,
+            out_channels=num_filters,
+            kernel_size=(3, 3),
+            stride=(1, 1),
+            padding=1,
+        )
+        self.conv2_bn = nn.BatchNorm2d(
+            num_filters,
+        )
+        self.conv2_act = nn.ReLU()
+
+    def forward(self, x):
+        y = self.conv1(x)
+        y = self.conv1_bn(y)
+        y = self.conv1_act(y)
+        y = self.conv2(y)
+        y = self.conv2_bn(y)
+        y = x + y
+        return self.conv2_act(y)
 
 
 class PolicyValueNet(nn.Module):
-    def __init__(self, in_channels=3, board_size=6):
+    def __init__(self, in_channels=5, board_size=6):
         super(PolicyValueNet, self).__init__()
         self.board_size = board_size
-
-        # 公共卷积层 (3层)
-        self.conv1 = nn.Conv2d(in_channels, 32, kernel_size=3, padding=1)
-        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
-        self.conv3 = nn.Conv2d(64, 128, kernel_size=3, padding=1)
-
-        # --- Policy head ---
-        self.policy_conv = nn.Conv2d(128, 4, kernel_size=1)  # 降维
-        self.policy_fc = nn.Linear(4 * board_size * board_size,
-                                   board_size * board_size)
-
-        # --- Value head ---
-        self.value_conv = nn.Conv2d(128, 2, kernel_size=1)  # 降维
-        self.value_fc1 = nn.Linear(2 * board_size * board_size, 64)
-        self.value_fc2 = nn.Linear(64, 1)
+        self.conv1 = nn.Sequential(
+            nn.Conv2d(
+                in_channels=in_channels,
+                out_channels=256,
+                kernel_size=3,
+                stride=1,
+                padding=1,
+            ),
+            nn.BatchNorm2d(256),
+            nn.ReLU(),
+        )
+        self.block = nn.Sequential(
+            ResBlock(num_filters=256),
+            ResBlock(num_filters=256),
+            ResBlock(num_filters=256),
+            ResBlock(num_filters=256),
+            ResBlock(num_filters=256),
+            ResBlock(num_filters=256),
+            ResBlock(num_filters=256),
+        )
+        self.policy_head = nn.Sequential(
+            nn.Conv2d(
+                in_channels=256, out_channels=16, kernel_size=1, stride=1, padding=0
+            ),
+            nn.BatchNorm2d(16),
+            nn.ReLU(),
+            nn.Flatten(),
+            nn.Linear(
+                in_features=16 * board_size * board_size,
+                out_features=board_size * board_size,
+            ),
+        )
+        self.value_head = nn.Sequential(
+            nn.Conv2d(
+                in_channels=256, out_channels=8, kernel_size=1, stride=1, padding=0
+            ),
+            nn.BatchNorm2d(8),
+            nn.ReLU(),
+            nn.Flatten(),
+            nn.Linear(in_features=8 * board_size * board_size, out_features=256),
+            nn.ReLU(),
+            nn.Linear(in_features=256, out_features=16),
+            nn.Tanh(),
+        )
 
     def forward(self, x):
         # 共享特征提取
-        x = F.relu(self.conv1(x))
-        x = F.relu(self.conv2(x))
-        x = F.relu(self.conv3(x))
-
+        x = self.conv1(x)
+        x = self.block(x)
         # --- Policy head ---
-        p = F.relu(self.policy_conv(x))
-        p = p.view(-1, 4 * self.board_size * self.board_size)
-        policy_logits = self.policy_fc(p)
+        p = self.policy_head(x)
+        p = p.reshape(p.shape[0], self.board_size, self.board_size)
 
         # --- Value head ---
-        v = F.relu(self.value_conv(x))
-        v = v.view(-1, 2 * self.board_size * self.board_size)
-        v = F.relu(self.value_fc1(v))
-        value = torch.tanh(self.value_fc2(v))
+        v = self.value_head(x)
 
-        return policy_logits, value
+        return p, v
 
     def calc_one_board(self, x):
         if isinstance(x, np.ndarray):
@@ -51,13 +113,18 @@ class PolicyValueNet(nn.Module):
         self.eval()
         with torch.no_grad():
             logits, value = self.forward(x)
-            probs = F.softmax(logits, dim=1).view(
-                -1, self.board_size, self.board_size
-            ).squeeze(0).detach().cpu().numpy()
+            probs = (
+                F.softmax(logits, dim=1)
+                .view(-1, self.board_size, self.board_size)
+                .squeeze(0)
+                .detach()
+                .cpu()
+                .numpy()
+            )
             return probs, value.squeeze(0).detach().cpu().numpy()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     model = PolicyValueNet()
 
     total_params = sum(p.numel() for p in model.parameters())
@@ -65,3 +132,8 @@ if __name__ == '__main__':
 
     print(f"Total parameters: {total_params:,}")
     print(f"Trainable parameters: {trainable_params:,}")
+
+    data = torch.randn(16, 5, 6, 6)
+    probs, value = model(data)
+    print(probs.shape)
+    print(value.shape)
