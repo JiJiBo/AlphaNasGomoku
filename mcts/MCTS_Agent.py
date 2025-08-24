@@ -1,12 +1,8 @@
-import copy
 import math
-import random
 from typing import List
 
 import numpy as np
 import torch
-from numpy import ndarray
-import tqdm
 
 from board import GomokuBoard
 from board.GomokuBoard import GomokuAction
@@ -15,19 +11,28 @@ from net.GomokuNet import PolicyValueNet
 
 
 class MCTS_Agent:
-    def __init__(self, model: PolicyValueNet, device=None, use_rand=0.03, c_puct=1.4, tau=0.9):
+    def __init__(
+        self, model: PolicyValueNet, device=None, use_rand=0.03, c_puct=1.4, tau=0.9
+    ):
         self.model = model
         self.use_rand = use_rand
         self.c_puct = c_puct
         self.device = device
         if self.device is None:
-            self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model.to(self.device)
         self.model.eval()
-        self.visit_nodes: List['MCTS_Node'] = []
+        self.visit_nodes: List["MCTS_Node"] = []
         self.tau = tau
 
-    def run(self, root_board: GomokuBoard, player: int, number_samples=800, is_train=False, cur_root=None):
+    def run(
+        self,
+        root_board: GomokuBoard,
+        player: int,
+        number_samples=800,
+        is_train=False,
+        cur_root=None,
+    ):
         if cur_root is None:
             root_node = MCTS_Node(root_board, player)
         else:
@@ -49,11 +54,16 @@ class MCTS_Agent:
 
     def select_child(self, node: MCTS_Node):
         # 得到当前节点的访问次数
-        total_visits = sum([(edg.child.visits if edg.child is not None else 0) for edg in node.children.values()])
+        total_visits = sum(
+            [
+                (edg.child.visits if edg.child is not None else 0)
+                for edg in node.children.values()
+            ]
+        )
         # 开平方
         explore_buff = math.sqrt(total_visits)
 
-        best_score = -float('inf')
+        best_score = -float("inf")
         best_child = None
         best_move = None
         best_edg = None
@@ -80,14 +90,18 @@ class MCTS_Agent:
             # 给 节点 赋值
             # flag 要 取反
             # 最关键 的 是 prior=best_edg.prior 因为 这 涉及到 一个 约定，可见 注释
-            best_child = MCTS_Node(new_board, -best_move.flag, parent=node, prior=best_edg.prior)
+            best_child = MCTS_Node(
+                new_board, -best_move.flag, parent=node, prior=best_edg.prior
+            )
             # 给其 赋值
             node.children[best_move] = Edge(best_child, best_edg.prior)
         return best_child
 
     def expand(self, node: MCTS_Node):
         # 得到先验概率（ 已经  log_softmax 处理 ）和胜率
-        policy_logits, value = self.model.calc_one_board(torch.from_numpy(node.board.get_planes_3ch(node.player)))
+        policy_logits, value = self.model.calc_one_board(
+            torch.from_numpy(node.board.get_planes_3ch(node.player))
+        )
         # 得到 空白位置
         moves = node.board.available()
         # 筛选可用的（空白位置的）先验概率
@@ -95,7 +109,11 @@ class MCTS_Agent:
         # 求和，为先验概率归一化做准备
         s = priors.sum()
         # 对 先验概率 -> priors  进行归一化 。如果s不大于0， 先验概率 为 1/len(可用位置)   但是肯定进行了归一化
-        priors = priors / s if s > 0 else np.ones(len(moves), dtype=np.float32) / max(1, len(moves))
+        priors = (
+            priors / s
+            if s > 0
+            else np.ones(len(moves), dtype=np.float32) / max(1, len(moves))
+        )
         # 对 先验概率 进行 扰动
         epsilon = 0.25
         alpha = 0.03
@@ -113,7 +131,9 @@ class MCTS_Agent:
         # edge 的 prior 是 下子 的 概率 ， 不是 胜率。
         node.wins_value = float(value)
 
-    def get_result_action(self, node: MCTS_Node, is_train=False) -> tuple[GomokuAction, np.ndarray]:
+    def get_result_action(
+        self, node: MCTS_Node, is_train=False
+    ) -> tuple[GomokuAction, np.ndarray]:
         return node.best_action(self.tau if is_train else 0, node.board.available())
 
     def get_train_data(self, winner: int):
@@ -122,7 +142,9 @@ class MCTS_Agent:
         # 先计算所有节点的总访问次数
         total_visits_all_nodes = 0
         for node in self.visit_nodes:
-            node_visits = sum([edg.child.visits if edg.child else 0 for edg in node.children.values()])
+            node_visits = sum(
+                [edg.child.visits if edg.child else 0 for edg in node.children.values()]
+            )
             total_visits_all_nodes += node_visits
         total_visits_all_nodes = max(total_visits_all_nodes, 1e-6)  # 防止除零
 
@@ -131,7 +153,9 @@ class MCTS_Agent:
             z = winner if node.player == GomokuBoard.PLAYER_BLACK else -winner
 
             # 节点的访问次数
-            node_visits = sum([edg.child.visits if edg.child else 0 for edg in node.children.values()])
+            node_visits = sum(
+                [edg.child.visits if edg.child else 0 for edg in node.children.values()]
+            )
 
             # 得到这个节点的动作策略 (已经归一化)
             pi = node.get_train()
@@ -178,7 +202,7 @@ class MCTS_Agent:
             torch.stack(augmented_boards),
             torch.stack(augmented_policies),
             torch.stack(augmented_values),
-            torch.stack(augmented_weights)
+            torch.stack(augmented_weights),
         )
 
     def show_nn(self, board: GomokuBoard, simulations: int = 100):
@@ -195,14 +219,22 @@ class MCTS_Agent:
         # 使用MCTS搜索
         try:
             # 调用MCTS的run方法
-            info, root = self.run(board.copy(), board.last_move().flag if board.last_move().flag != 0 else 1,
-                                  simulations, is_train=True)
+            info, root = self.run(
+                board.copy(),
+                board.last_move().flag if board.last_move().flag != 0 else 1,
+                simulations,
+                is_train=True,
+            )
             action, action_probs = info  # action_probs 是经过MCTS搜索后的策略概率
-            print(f"MCTS策略概率范围: {action_probs.min():.4f} ~ {action_probs.max():.4f}")
+            print(
+                f"MCTS策略概率范围: {action_probs.min():.4f} ~ {action_probs.max():.4f}"
+            )
         except Exception as e:
             print(f"MCTS搜索失败，回退到神经网络直接估值: {e}")
             # 如果MCTS失败，就使用神经网络直接预测
-            action_probs, _ = self.model.calc_one_board(torch.from_numpy(board.get_planes_3ch(1)))
+            action_probs, _ = self.model.calc_one_board(
+                torch.from_numpy(board.get_planes_3ch(1))
+            )
 
         # 填充策略概率矩阵
         for i in range(board_size):
@@ -217,7 +249,17 @@ class MCTS_Agent:
             for j in range(board_size):
                 if board.board[i][j] == 0:
                     new_board = board.copy()
-                    new_board.step(GomokuAction(i, j, board.last_move().flag if board.last_move().flag != 0 else 1))
+                    new_board.step(
+                        GomokuAction(
+                            i,
+                            j,
+                            (
+                                board.last_move().flag
+                                if board.last_move().flag != 0
+                                else 1
+                            ),
+                        )
+                    )
                     planes = new_board.get_planes_3ch(1)
                     _, val_matrix[i][j] = self.model.calc_one_board(planes)
 
