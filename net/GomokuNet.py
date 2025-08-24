@@ -88,7 +88,7 @@ class PolicyValueNet(nn.Module):
             nn.Flatten(),
             nn.Linear(in_features=8 * board_size * board_size, out_features=256),
             nn.ReLU(),
-            nn.Linear(in_features=256, out_features=16),
+            nn.Linear(in_features=256, out_features=1),
             nn.Tanh(),
         )
 

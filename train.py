@@ -336,36 +336,35 @@ def train_model(model, train_loader, val_loader, writer, epochs, lr_multiplier):
         with torch.no_grad():
             pred_policies_old, pred_values_old = [], []
             for batch_boards, _, _, _ in train_loader:
+                batch_boards = batch_boards.to(device)
                 p, v = model(batch_boards)
                 pred_policies_old.append(p)
                 pred_values_old.append(v)
 
-        # 拼接成一个大 tensor（可选）
-        pred_policies_old = torch.cat(pred_policies_old, dim=0)
-        pred_values_old = torch.cat(pred_values_old, dim=0)
-
+        count = 0
         for batch_boards, batch_policies, batch_values, batch_weights in tqdm(
             train_loader
         ):
             batch_boards = batch_boards.to(device)
-            batch_policies = batch_policies.to(device).view(batch_policies.size(0), -1)
+            batch_policies = batch_policies.to(device).view(
+                batch_policies.size(0), model.board_size, model.board_size
+            )
             batch_values = batch_values.to(device).unsqueeze(1)
-            batch_weights = batch_weights.to(device)
+            batch_weights = batch_weights.to(device).unsqueeze(1)
 
             optimizer.zero_grad()
             # 网络输出
             pred_policies, pred_values = model(batch_boards)
+            pp_old = pred_policies_old[count]
             # 计算KL散度
             KL_LOSS = torch.mean(
                 torch.sum(
-                    pred_policies_old
-                    * (
-                        torch.log(pred_values_old + 1e-10)
-                        - torch.log(pred_values + 1e-10)
-                    ),
+                    pp_old
+                    * (torch.log(pp_old + 1e-10) - torch.log(pred_policies + 1e-10)),
                     dim=1,
                 )
             )
+            count += 1
             if KL_LOSS > KL_TARG * 4:  # 如果KL散度很差，则提前终止
                 break
             if KL_LOSS > KL_TARG * 2 and lr_multiplier > 0.1:
@@ -379,6 +378,7 @@ def train_model(model, train_loader, val_loader, writer, epochs, lr_multiplier):
             # ---- policy loss ----
             # 注意: batch_policies 已经是访问次数归一化的概率分布，不需要 softmax
             log_probs = F.log_softmax(pred_policies, dim=1)
+
             policy_loss = -(batch_policies * log_probs).sum(dim=1)
             weighted_policy_loss = (policy_loss * batch_weights).mean()
 
@@ -396,7 +396,9 @@ def train_model(model, train_loader, val_loader, writer, epochs, lr_multiplier):
         with torch.no_grad():
             for boards, policies, values, weights in val_loader:
                 boards = boards.to(device)
-                policies = policies.to(device).view(policies.size(0), -1)
+                policies = policies.to(device).view(
+                    policies.size(0), model.board_size, model.board_size
+                )
                 values = values.to(device).unsqueeze(1)
 
                 pred_policies, pred_values = model(boards)
