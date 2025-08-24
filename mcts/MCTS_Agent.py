@@ -38,6 +38,7 @@ class MCTS_Agent:
         else:
             root_node = cur_root
         self.visit_nodes.append(root_node)
+        # for _ in tqdm(range(number_samples)):
         for _ in range(number_samples):
             node = root_node
             search_path = [node]
