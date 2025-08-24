@@ -100,7 +100,7 @@ class MCTS_Agent:
     def expand(self, node: MCTS_Node):
         # 得到先验概率（ 已经  log_softmax 处理 ）和胜率
         policy_logits, value = self.model.calc_one_board(
-            torch.from_numpy(node.board.get_planes_3ch(node.player))
+            torch.from_numpy(node.board.get_planes_5ch(node.player))
         )
         # 得到 空白位置
         moves = node.board.available()
@@ -161,7 +161,7 @@ class MCTS_Agent:
             pi = node.get_train()
 
             # 保存数据
-            boards.append(node.board.copy().get_planes_3ch(node.player))
+            boards.append(node.board.copy().get_planes_5ch(node.player))
             policies.append(pi)
             values.append(float(z))
 
@@ -233,7 +233,7 @@ class MCTS_Agent:
             print(f"MCTS搜索失败，回退到神经网络直接估值: {e}")
             # 如果MCTS失败，就使用神经网络直接预测
             action_probs, _ = self.model.calc_one_board(
-                torch.from_numpy(board.get_planes_3ch(1))
+                torch.from_numpy(board.get_planes_5ch(1))
             )
 
         # 填充策略概率矩阵
@@ -260,7 +260,7 @@ class MCTS_Agent:
                             ),
                         )
                     )
-                    planes = new_board.get_planes_3ch(1)
+                    planes = new_board.get_planes_5ch(1)
                     _, val_matrix[i][j] = self.model.calc_one_board(planes)
 
         return prob_matrix, val_matrix

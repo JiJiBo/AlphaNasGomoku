@@ -13,7 +13,7 @@ class GomokuAction:
         self.y = y
         self.flag = flag
 
-    def is_available(self, board: Optional['GomokuBoard']):
+    def is_available(self, board: Optional["GomokuBoard"]):
         # 检测位置
         if self.x < 0 or self.x > board.size or self.y < 0 or self.y > board.size:
             # print("检测位置")
@@ -32,7 +32,11 @@ class GomokuAction:
 
 
 class GomokuBoard:
-    def __init__(self, size=6, count_win=4, ):
+    def __init__(
+        self,
+        size=6,
+        count_win=4,
+    ):
         """
         初始化函数
         :param size: 棋盘大小
@@ -103,7 +107,7 @@ class GomokuBoard:
                             if self.board[nx][ny] == flag:
                                 count += 1
                                 if count >= self.count_win:
-                                    self.win_path = seq[:self.count_win]
+                                    self.win_path = seq[: self.count_win]
                                     if flag == PLAYER_WHITE:
                                         return Winner.WHITE
                                     elif flag == PLAYER_BLACK:
@@ -142,7 +146,7 @@ class GomokuBoard:
         self.board[action.x, action.y] = action.flag
         return self.board, self.get_winner()
 
-    def copy(self) -> Optional['GomokuBoard']:
+    def copy(self) -> Optional["GomokuBoard"]:
         """
         拷贝棋盘
         :return: 棋盘
@@ -159,3 +163,16 @@ class GomokuBoard:
         opp = (b == -flag).astype(np.float32)
         empty = (b == 0).astype(np.float32)
         return np.stack([me, opp, empty], axis=0).astype(np.float32)
+
+    def get_planes_5ch(self, flag):
+        b = self.board
+        me = (b == flag).astype(np.float32)
+        opp = (b == -flag).astype(np.float32)
+        empty = (b == 0).astype(np.float32)
+        hand = np.ones_like(me).astype(np.float32) * flag
+        last_board = np.zeros_like(me).astype(np.float32)
+        last_move = self.last_move()
+        if last_move.flag != PLAYER_EMPTY:
+            last_board[last_move.x, last_move.y] = -1
+
+        return np.stack([me, opp, empty, hand, last_board], axis=0).astype(np.float32)
