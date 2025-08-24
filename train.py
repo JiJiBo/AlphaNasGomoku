@@ -332,15 +332,7 @@ def train_model(model, train_loader, val_loader, writer, epochs, lr_multiplier):
     for epoch in range(5):  # 外层已经控制大循环，这里小循环即可
         model.train()
         train_value_loss, train_policy_loss = [], []
-        with torch.no_grad():
-            pred_policies_old, pred_values_old = [], []
-            for batch_boards, _, _, _ in train_loader:
-                batch_boards = batch_boards.to(device)
-                p, v = model(batch_boards)
-                pred_policies_old.append(p)
-                pred_values_old.append(v)
 
-        count = 0
         for batch_boards, batch_policies, batch_values, batch_weights in tqdm(
             train_loader
         ):
@@ -350,22 +342,11 @@ def train_model(model, train_loader, val_loader, writer, epochs, lr_multiplier):
             )
             batch_values = batch_values.to(device).unsqueeze(1)
             batch_weights = batch_weights.to(device).unsqueeze(1)
-
+            with torch.no_grad():
+                pred_policies_old, pred_values_old = model(batch_boards)
             optimizer.zero_grad()
             # 网络输出
             pred_policies, pred_values = model(batch_boards)
-            pp_old = pred_policies_old[count]
-            pp_old = torch.exp(pp_old)
-            pred_policies_e = torch.exp(pred_policies)
-            # 计算KL散度
-            KL_LOSS = torch.mean(
-                torch.sum(
-                    pp_old
-                    * (torch.log(pp_old + 1e-10) - torch.log(pred_policies_e + 1e-10)),
-                    dim=1,
-                )
-            )
-            count += 1
 
             print("lr multiplier:", lr_multiplier)
             print("lr lr * lr_multiplier:", lr * lr_multiplier)
@@ -390,6 +371,21 @@ def train_model(model, train_loader, val_loader, writer, epochs, lr_multiplier):
 
             train_value_loss.append(weighted_value_loss.item())
             train_policy_loss.append(weighted_policy_loss.item())
+            with torch.no_grad():
+                pred_policies_new, pred_values_new = model(batch_boards)
+            pp_old = pred_policies_old
+            pp_old = torch.exp(pp_old)
+            pred_policies_new = torch.exp(pred_policies_new)
+            # 计算KL散度
+            KL_LOSS = torch.mean(
+                torch.sum(
+                    pp_old
+                    * (
+                        torch.log(pp_old + 1e-10) - torch.log(pred_policies_new + 1e-10)
+                    ),
+                    dim=1,
+                )
+            )
             print("KL:", KL_LOSS.item())
             if KL_LOSS > KL_TARG * 4:  # 如果KL散度很差，则提前终止
                 print("KL散度很差，提前终止")
