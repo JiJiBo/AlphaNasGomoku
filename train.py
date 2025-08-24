@@ -235,8 +235,8 @@ def gen_a_episode_data(
     draws = 0
     tau = get_tau(epoch)
     c_puct = get_c_puct(epoch)
-    for _ in range(max_games):
-        # for _ in tqdm(range(max_games), desc=f"work: {work_id} - epoch: {epoch}"):
+    # for _ in range(max_games):
+    for _ in tqdm(range(max_games), desc=f"work: {work_id} - epoch: {epoch}"):
         if stop_event.is_set():
             break
         # board = generate_random_safe_board(board_size)
