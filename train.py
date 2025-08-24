@@ -73,7 +73,7 @@ def generate_selfplay_data(
     weak_model,
     num_games,
     board_size,
-    max_games_per_worker=1,
+    max_games_per_worker=10,
     nc=400,
 ):
     device = torch.device("cpu")
@@ -417,12 +417,12 @@ def train_model(model, train_loader, val_loader, writer, epochs, lr_multiplier):
 def train():
     board_size = 6
     batch_size = 8
-    epochs = 1000
+    epochs = 3000
     train_ratio = 0.9
     seed = 42
     win_rate_threshold = 0  # 胜率阈值
     window_size = 30
-    nc = 400
+    nc = 1200
     lr_multiplier = 1
     torch.manual_seed(seed)
     np.random.seed(seed)
@@ -463,7 +463,7 @@ def train():
             weak_wins,
             draws,
         ) = generate_selfplay_data(
-            epoch, strong_model, weak_model, 1, board_size, nc=nc
+            epoch, strong_model, weak_model, 2, board_size, nc=nc
         )
 
         # 更新最近结果
