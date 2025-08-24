@@ -73,7 +73,7 @@ def generate_selfplay_data(
     weak_model,
     num_games,
     board_size,
-    max_games_per_worker=10,
+    max_games_per_worker=7,
     nc=400,
 ):
     device = torch.device("cpu")
