@@ -329,7 +329,7 @@ def train_model(model, train_loader, val_loader, writer, epochs, lr_multiplier):
 
     train_losses, val_losses = [], []
 
-    for epoch in range(1):  # 外层已经控制大循环，这里小循环即可
+    for epoch in range(5):  # 外层已经控制大循环，这里小循环即可
         model.train()
         train_value_loss, train_policy_loss = [], []
         with torch.no_grad():
@@ -366,14 +366,6 @@ def train_model(model, train_loader, val_loader, writer, epochs, lr_multiplier):
                 )
             )
             count += 1
-            print("KL:", KL_LOSS.item())
-            if KL_LOSS > KL_TARG * 4:  # 如果KL散度很差，则提前终止
-                print("KL散度很差，提前终止")
-                break
-            if KL_LOSS > KL_TARG * 2 and lr_multiplier > 0.1:
-                lr_multiplier /= 1.5
-            elif KL_LOSS < KL_TARG / 2 and lr_multiplier < 10:
-                lr_multiplier *= 1.5
 
             print("lr multiplier:", lr_multiplier)
             print("lr lr * lr_multiplier:", lr * lr_multiplier)
@@ -398,7 +390,14 @@ def train_model(model, train_loader, val_loader, writer, epochs, lr_multiplier):
 
             train_value_loss.append(weighted_value_loss.item())
             train_policy_loss.append(weighted_policy_loss.item())
-
+            print("KL:", KL_LOSS.item())
+            if KL_LOSS > KL_TARG * 4:  # 如果KL散度很差，则提前终止
+                print("KL散度很差，提前终止")
+                break
+            if KL_LOSS > KL_TARG * 2 and lr_multiplier > 0.1:
+                lr_multiplier /= 1.5
+            elif KL_LOSS < KL_TARG / 2 and lr_multiplier < 10:
+                lr_multiplier *= 1.5
         # ---- 验证 ----
         model.eval()
         val_value_loss, val_policy_loss = 0, 0
