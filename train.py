@@ -355,11 +355,13 @@ def train_model(model, train_loader, val_loader, writer, epochs, lr_multiplier):
             # 网络输出
             pred_policies, pred_values = model(batch_boards)
             pp_old = pred_policies_old[count]
+            pp_old = torch.exp(pp_old)
+            pred_policies_e = torch.exp(pred_policies)
             # 计算KL散度
             KL_LOSS = torch.mean(
                 torch.sum(
                     pp_old
-                    * (torch.log(pp_old + 1e-10) - torch.log(pred_policies + 1e-10)),
+                    * (torch.log(pp_old + 1e-10) - torch.log(pred_policies_e + 1e-10)),
                     dim=1,
                 )
             )
