@@ -333,9 +333,17 @@ def train_model(model, train_loader, val_loader, writer, epochs, lr_multiplier):
     for epoch in range(1):  # 外层已经控制大循环，这里小循环即可
         model.train()
         train_value_loss, train_policy_loss = [], []
-        batch_boards, batch_policies, batch_values, batch_weights = train_loader
         with torch.no_grad():
-            pred_policies_old, pred_values_old = model(batch_boards)
+            pred_policies_old, pred_values_old = [], []
+            for batch_boards, _, _, _ in train_loader:
+                p, v = model(batch_boards)
+                pred_policies_old.append(p)
+                pred_values_old.append(v)
+
+        # 拼接成一个大 tensor（可选）
+        pred_policies_old = torch.cat(pred_policies_old, dim=0)
+        pred_values_old = torch.cat(pred_values_old, dim=0)
+
         for batch_boards, batch_policies, batch_values, batch_weights in tqdm(
             train_loader
         ):
