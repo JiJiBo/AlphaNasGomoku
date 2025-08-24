@@ -129,7 +129,6 @@ class MCTS_Agent:
         # 最终 总结
         # 经过 expand 神经网络 的 输出，胜率 赋予 了 根节点 。 动作 赋予 了 子节点 的 key 。
         # edge 的 prior 是 下子 的 概率 ， 不是 胜率。
-        node.wins_value = float(value)
 
     def get_result_action(
         self, node: MCTS_Node, is_train=False

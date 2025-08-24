@@ -8,20 +8,23 @@ from board.GomokuBoard import GomokuBoard, GomokuAction
 
 @dataclass
 class Edge:
-    child: Optional['MCTS_Node']
+    child: Optional["MCTS_Node"]
     # 特殊处理 prior 等于 child 的 prior
     prior: float
 
 
 class MCTS_Node:
-    def __init__(self, board: GomokuBoard, player: int, parent: Optional['MCTS_Node'] = None,
-                 prior: float = 1.0):
+    def __init__(
+        self,
+        board: GomokuBoard,
+        player: int,
+        parent: Optional["MCTS_Node"] = None,
+        prior: float = 1.0,
+    ):
         self.board = board
         self.player = player
         self.parent = parent
         self.children: Dict[GomokuAction, Edge] = {}
-        # 网络 输出 胜率
-        self.wins_value = 0.0
         # 累积 价值
         self.total_value = 0.0
         self.visits = 0
@@ -34,8 +37,13 @@ class MCTS_Node:
         # 要 累积 价值
         self.total_value += value
 
-    def best_action(self, tau: float = 0.0, legal_actions: Optional[List[int]] = None,
-                    alpha: float = 0.1, rng: Optional[np.random.Generator] = None) -> Tuple[GomokuAction, np.ndarray]:
+    def best_action(
+        self,
+        tau: float = 0.0,
+        legal_actions: Optional[List[int]] = None,
+        alpha: float = 0.1,
+        rng: Optional[np.random.Generator] = None,
+    ) -> Tuple[GomokuAction, np.ndarray]:
         # 获取 一个 选择器
         if rng is None:
             rng = np.random.default_rng()
@@ -47,8 +55,13 @@ class MCTS_Node:
         if not actions:
             raise ValueError("没有合法动作可选择")
         # 得到 所有 孩子的 访问次数 集合
-        visits = np.array([self.children[a].child.visits if self.children[a].child else 0 for a in actions],
-                          dtype=np.float64)
+        visits = np.array(
+            [
+                self.children[a].child.visits if self.children[a].child else 0
+                for a in actions
+            ],
+            dtype=np.float64,
+        )
         # 与其 对应的 访问概率
         priors = np.array([self.children[a].prior for a in actions], dtype=np.float64)
         # 看看是不是训练模式
@@ -63,7 +76,9 @@ class MCTS_Node:
                 # tie-breaker using prior
                 # 得到 先验概率 最大的 点
                 best_prior = max(self.children[a].prior for a in candidates)
-                candidates = [a for a in candidates if self.children[a].prior == best_prior]
+                candidates = [
+                    a for a in candidates if self.children[a].prior == best_prior
+                ]
             # 得到 最优 移动点
             ### TODO 这里存疑，看看是不是应该根据选择的次数来判定最优点
             best_move = rng.choice(candidates)
