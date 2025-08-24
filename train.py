@@ -364,7 +364,7 @@ def train_model(model, train_loader, val_loader, writer, epochs, lr_multiplier):
                 )
             )
             count += 1
-            print("KL:", KL_LOSS)
+            print("KL:", KL_LOSS.item())
             if KL_LOSS > KL_TARG * 4:  # 如果KL散度很差，则提前终止
                 print("KL散度很差，提前终止")
                 break
@@ -372,6 +372,9 @@ def train_model(model, train_loader, val_loader, writer, epochs, lr_multiplier):
                 lr_multiplier /= 1.5
             elif KL_LOSS < KL_TARG / 2 and lr_multiplier < 10:
                 lr_multiplier *= 1.5
+
+            print("lr multiplier:", lr_multiplier)
+            print("lr lr * lr_multiplier:", lr * lr_multiplier)
             for params in optimizer.param_groups:
                 # 遍历Optimizer中的每一组参数，将该组参数的学习率 * 0.9
                 params["lr"] = lr * lr_multiplier
